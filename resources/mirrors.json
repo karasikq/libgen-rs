@@ -1,0 +1,41 @@
+﻿{
+    "libgen.is": {
+        "Host": "http://libgen.is/",
+        "SearchUrl": "https://libgen.is/search.php",
+        "NonFictionSynchronizationUrl": "http://libgen.is/json.php"
+    },
+    "libgen.rs": {
+        "Host": "http://libgen.rs/",
+        "SearchUrl": "https://libgen.rs/search.php",
+        "NonFictionSynchronizationUrl": "http://libgen.rs/json.php"
+    },
+    "libgen.st": {
+        "Host": "http://libgen.st/",
+        "SearchUrl": "https://libgen.st/search.php",
+        "NonFictionSynchronizationUrl": "http://libgen.st/json.php"
+    },
+    "library.lol": {
+        "Host": "http://libgen.lol/",
+        "NonFictionDownloadUrl": "http://library.lol/main/{md5}",
+        "NonFictionCoverUrl": "http://libgen.rs/covers/{cover-url}",
+        "NonFictionSynchronizationUrl": "http://libgen.rs/json.php"
+    },
+    "libgen.lc": {
+        "Host": "http://libgen.lc/",
+        "NonFictionDownloadUrl": "http://libgen.lc/ads.php?md5={md5}",
+        "NonFictionCoverUrl": "http://libgen.lc/covers/{cover-url}",
+        "NonFictionSynchronizationUrl": "http://libgen.ls/json.php"
+    },
+    "libgen.rocks": {
+        "Host": "https://libgen.rocks/",
+        "NonFictionDownloadUrl": "https://libgen.rocks/ads.php?md5={md5}"
+    },
+    "libgen.me": {
+        "Host": "https://libgen.me/",
+        "NonFictionDownloadUrl": "https://libgen.me/book/{md5}"
+    },
+    "Z-Library": {
+        "Host": "http://3lib.net/",
+        "NonFictionDownloadUrl": "https://3lib.net/md5/{md5}"
+    }
+}
