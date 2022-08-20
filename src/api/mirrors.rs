@@ -112,10 +112,9 @@ impl MirrorList {
     }
 
     pub fn get(&self, mirror_type: MirrorType, index: usize) -> Result<Mirror, &'static str> {
-        if let MirrorType::Search = mirror_type {
-            return Ok(self.search_mirrors.get(index).unwrap().clone());
-        } else {
-            return Ok(self.download_mirrors.get(index).unwrap().clone());
+        match mirror_type {
+            MirrorType::Search => Ok(self.search_mirrors.get(index).unwrap().clone()),
+            MirrorType::Download => Ok(self.download_mirrors.get(index).unwrap().clone()),
         }
     }
 }
