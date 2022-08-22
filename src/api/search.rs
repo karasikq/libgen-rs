@@ -84,12 +84,7 @@ impl Search {
     }
 
     async fn get_content(url: &Url, client: &Client) -> Result<Bytes, reqwest::Error> {
-        client
-            .get(url.as_str())
-            .send()
-            .await?
-            .bytes()
-            .await
+        client.get(url.as_str()).send().await?.bytes().await
     }
 
     fn parse_hashes(content: Bytes) -> Vec<String> {
@@ -106,6 +101,7 @@ impl Search {
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
         let mut parsed_books: Vec<Book> = Vec::new();
+        let cover_url = String::from(self.mirror.cover_pattern.as_ref().unwrap());
 
         for hash in hashes.iter() {
             let mut search_url = Url::parse(
@@ -132,6 +128,11 @@ impl Search {
                         continue;
                     }
                 };
+            book.iter_mut().for_each(|b| {
+                if self.mirror.cover_pattern.is_some() {
+                    b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
+                }
+            });
             parsed_books.append(&mut book);
         }
         parsed_books
