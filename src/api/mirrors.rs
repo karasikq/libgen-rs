@@ -16,6 +16,7 @@ pub struct Mirror {
     pub download_url: Option<Url>,
     pub download_pattern: Option<String>,
     pub sync_url: Option<Url>,
+    pub cover_pattern: Option<String>,
 }
 
 impl Mirror {
@@ -62,6 +63,9 @@ impl MirrorList {
             let sync_url = v
                 .get("NonFictionSynchronizationUrl")
                 .map(|v| Url::parse(v.as_str().unwrap()).unwrap());
+            let cover_pattern = v
+                .get("NonFictionCoverUrl")
+                .map(|v| String::from(v.as_str().unwrap()));
             if let Some(..) = host_url {
                 if search_url.is_some() {
                     search_mirrors.push(Mirror {
@@ -70,6 +74,7 @@ impl MirrorList {
                         download_url,
                         download_pattern,
                         sync_url,
+                        cover_pattern,
                     })
                 } else if download_url.is_some() {
                     download_mirrors.push(Mirror {
@@ -78,6 +83,7 @@ impl MirrorList {
                         download_url,
                         download_pattern,
                         sync_url,
+                        cover_pattern
                     })
                 }
             }
