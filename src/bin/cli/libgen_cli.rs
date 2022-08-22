@@ -7,10 +7,10 @@ use std::cmp::min;
 use std::fs::File;
 use std::io::Write;
 
-use crate::api::book::Book;
-use crate::api::download::DownloadRequest;
-use crate::api::mirrors::{Mirror, MirrorList, MirrorType};
-use crate::api::search::{Search, SearchOption};
+use libgen::api::book::Book;
+use libgen::api::download::DownloadRequest;
+use libgen::api::mirrors::{Mirror, MirrorList, MirrorType};
+use libgen::api::search::{Search, SearchOption};
 
 pub fn parse_mirrors() -> MirrorList {
     let mut config_path = dirs::config_dir().unwrap();
