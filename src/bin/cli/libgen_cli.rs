@@ -106,9 +106,9 @@ pub fn print_book_info(book: &Book) -> Result<(), &'static str> {
     println!("{}: {}", RED_STYLE.apply_to("Title"), book.title);
     println!("{}: {}", RED_STYLE.apply_to("Author"), book.author);
     println!(
-        "{}: {} Mb",
+        "{}: {:.2} Mb",
         RED_STYLE.apply_to("Filesize"),
-        book.filesize.parse::<u32>().unwrap() / 1024
+        book.filesize.parse::<u32>().unwrap() as f32 / 1048576.0
     );
     println!("{}: {}", RED_STYLE.apply_to("Year"), book.year);
     println!("{}: {}", RED_STYLE.apply_to("Language"), book.language);
@@ -185,7 +185,11 @@ pub async fn init() -> Result<(), &'static str> {
         let mut book_download_path = dirs::download_dir().unwrap();
         book_download_path.push("libgen-rs");
         std::fs::create_dir_all(&book_download_path).unwrap();
-        book_download_path.push(&selected_book.title);
+        if selected_book.title.len() >= 249 {
+            book_download_path.push(&selected_book.title[0..249]);
+        } else {
+            book_download_path.push(&selected_book.title);
+        }
         book_download_path.set_extension(&selected_book.extension);
         let mut stream = down_req.bytes_stream();
         let mut file = File::create(book_download_path).unwrap();
