@@ -1,7 +1,9 @@
+use console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, FuzzySelect, Input, Select};
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
+use lazy_static::lazy_static;
 use reqwest::Client;
 use std::cmp::min;
 use std::fs::File;
@@ -11,6 +13,10 @@ use libgen::api::book::Book;
 use libgen::api::download::DownloadRequest;
 use libgen::api::mirrors::{Mirror, MirrorList, MirrorType};
 use libgen::api::search::{Search, SearchOption};
+
+lazy_static! {
+    static ref RED_STYLE: Style = Style::new().red();
+}
 
 pub fn parse_mirrors() -> MirrorList {
     let mut config_path = dirs::config_dir().unwrap();
@@ -95,6 +101,25 @@ pub fn fuzzyselect_book(books: &[Book]) -> Result<Book, &'static str> {
     Ok(books.get(book.expect("Book not selected")).unwrap().clone())
 }
 
+pub fn print_book_info(book: &Book) -> Result<(), &'static str> {
+    println!("{}: {}", RED_STYLE.apply_to("ID"), book.id);
+    println!("{}: {}", RED_STYLE.apply_to("Title"), book.title);
+    println!("{}: {}", RED_STYLE.apply_to("Author"), book.author);
+    println!(
+        "{}: {} Mb",
+        RED_STYLE.apply_to("Filesize"),
+        book.filesize.parse::<u32>().unwrap() / 1024
+    );
+    println!("{}: {}", RED_STYLE.apply_to("Year"), book.year);
+    println!("{}: {}", RED_STYLE.apply_to("Language"), book.language);
+    println!("{}: {}", RED_STYLE.apply_to("Pages"), book.pages);
+    println!("{}: {}", RED_STYLE.apply_to("Publisher"), book.publisher);
+    println!("{}: {}", RED_STYLE.apply_to("Edition"), book.edition);
+    println!("{}: {}", RED_STYLE.apply_to("MD5"), book.md5);
+    println!("{}: {}", RED_STYLE.apply_to("Cover"), book.coverurl);
+    Ok(())
+}
+
 pub fn select_download_mirror(mirrors: &MirrorList) -> Result<Mirror, &'static str> {
     let mirror_selection = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Download mirror")
@@ -133,6 +158,7 @@ pub async fn init() -> Result<(), &'static str> {
     };
     loop {
         let selected_book = fuzzyselect_book(&books).expect("Empty book");
+        print_book_info(&selected_book).unwrap();
         if !Confirm::new()
             .with_prompt("Do you want to download this book?")
             .interact()
