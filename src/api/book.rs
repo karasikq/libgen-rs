@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Book {
     pub id: String,
     pub title: String,
@@ -22,4 +22,3 @@ impl fmt::Display for Book {
         write!(f, "{}", self.title)
     }
 }
-

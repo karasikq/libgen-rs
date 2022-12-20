@@ -3,11 +3,14 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use reqwest::Client;
-use std::cmp::Ordering;
+use serde::Deserialize;
+use serde::Serialize;
 use url::Url;
 
 use crate::api::book::Book;
-use crate::api::mirrors::Mirror;
+use crate::api::mirrors::Url as _Url;
+
+use super::mirrors::LibgenMetadata;
 
 lazy_static! {
     static ref HASH_REGEX: Regex = Regex::new(r"[A-Z0-9]{32}").unwrap();
@@ -16,78 +19,93 @@ lazy_static! {
             .to_string();
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
 pub enum SearchOption {
+    #[serde(rename = "def")]
     Default,
+    #[serde(rename = "title")]
     Title,
+    #[serde(rename = "author")]
     Author,
+    #[serde(rename = "series")]
     Series,
+    #[serde(rename = "publisher")]
     Publisher,
+    #[serde(rename = "year")]
     Year,
+    #[serde(rename = "identifier")]
     ISBN,
+    #[serde(rename = "language")]
     Language,
+    #[serde(rename = "md5")]
     MD5,
+    #[serde(rename = "tags")]
     Tags,
+    #[serde(rename = "extension")]
     Extension,
 }
 
 pub struct Search {
-    pub mirror: Mirror,
-    pub request: String,
-    pub results: u32,
+    pub query: String,
+    pub max_results: u32,
     pub search_option: SearchOption,
+    pub search_url: _Url,
+    pub download_url: _Url,
+    libgen_metadata: LibgenMetadata,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SearchQuery {
+    pub req: String,
+    pub lg_topic: String,
+    pub res: String,
+    pub open: String,
+    pub view: String,
+    pub phrase: String,
+    pub column: SearchOption,
+}
+
+impl SearchQuery {
+    pub fn new(query: String, max_results: u32, search_option: SearchOption) -> Self {
+        Self {
+            req: query,
+            lg_topic: "libgen".to_string(),
+            res: max_results.to_string(),
+            open: "0".to_string(),
+            view: "simple".to_string(),
+            phrase: "1".to_string(),
+            column: search_option,
+        }
+    }
 }
 
 impl Search {
-    pub async fn search(&self, client: &Client) -> Result<Vec<Book>, &'static str> {
-        let results = match self.results.cmp(&50) {
-            Ordering::Less => 25,
-            Ordering::Equal => 50,
-            Ordering::Greater => 100,
-        };
-
-        let mut search_url = Url::parse(
-            self.mirror
-                .search_url
-                .as_ref()
-                .expect("Mirror search url is invalid")
-                .as_str(),
-        )
-        .unwrap();
-        let mut search_query = search_url.query_pairs_mut();
-        search_query
-            .append_pair("req", &self.request)
-            .append_pair("lg_topic", "libgen")
-            .append_pair("res", &results.to_string())
-            .append_pair("open", "0")
-            .append_pair("view", "simple")
-            .append_pair("phrase", "1");
-        match self.search_option {
-            SearchOption::Default => search_query.append_pair("column", "def"),
-            SearchOption::Title => search_query.append_pair("column", "title"),
-            SearchOption::Author => search_query.append_pair("column", "author"),
-            SearchOption::Series => search_query.append_pair("column", "series"),
-            SearchOption::Publisher => search_query.append_pair("column", "publisher"),
-            SearchOption::Year => search_query.append_pair("column", "year"),
-            SearchOption::ISBN => search_query.append_pair("column", "identifier"),
-            SearchOption::Language => search_query.append_pair("column", "language"),
-            SearchOption::MD5 => search_query.append_pair("column", "md5"),
-            SearchOption::Tags => search_query.append_pair("column", "tags"),
-            SearchOption::Extension => search_query.append_pair("column", "extension"),
-        };
-        let search_url = search_query.finish();
-        let content = match Self::get_content(search_url, client).await {
-            Ok(b) => b,
-            Err(_) => return Err("Error getting content from page"),
-        };
-        let book_hashes = Self::parse_hashes(content);
-        Ok(Self::get_books(self, &book_hashes, client).await)
+    pub async fn search(&self) -> Result<Vec<Book>, String> {
+        let query_string = self.generate_query_string()?;
+        let search_url_with_query = format!("{}?{}", self.search_url.url, query_string);
+        let reqwest_client = Client::new();
+        let response = Self::request_content_as_bytes(&search_url_with_query, &reqwest_client)
+            .await
+            .map_err(|e| e.to_string())?;
+        let book_hashes = Self::parse_hashes(&response);
+        let books = self.get_books(&book_hashes, &reqwest_client).await?;
+        Ok(books)
     }
 
-    async fn get_content(url: &Url, client: &Client) -> Result<Bytes, reqwest::Error> {
-        client.get(url.as_str()).send().await?.bytes().await
+    fn generate_query_string(&self) -> Result<String, String> {
+        serde_qs::to_string(&SearchQuery::new(
+            self.query.clone(),
+            self.max_results,
+            self.search_option.clone(),
+        ))
+        .map_err(|e| e.to_string())
     }
 
-    fn parse_hashes(content: Bytes) -> Vec<String> {
+    async fn request_content_as_bytes(url: &str, client: &Client) -> Result<Bytes, reqwest::Error> {
+        client.get(url).send().await?.bytes().await
+    }
+
+    fn parse_hashes(content: &Bytes) -> Vec<String> {
         let mut hashes: Vec<String> = Vec::new();
         for caps in HASH_REGEX.captures_iter(&content) {
             let capture = match caps.get(0) {
@@ -99,24 +117,19 @@ impl Search {
         hashes.iter().unique().cloned().collect::<Vec<_>>()
     }
 
-    async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
+    async fn get_books(&self, hashes: &[String], client: &Client) -> Result<Vec<Book>, String> {
         let mut parsed_books: Vec<Book> = Vec::new();
-        let cover_url = String::from(self.mirror.cover_pattern.as_ref().unwrap());
+
+        let (cover_url, search_url) = self.get_cover_and_search_urls()?;
 
         for hash in hashes.iter() {
-            let mut search_url = Url::parse(
-                self.mirror
-                    .non_fiction_sync_url
-                    .as_ref()
-                    .expect("Expected an Url")
-                    .as_str(),
-            )
-            .unwrap();
+            let mut search_url = Url::parse(search_url.as_str())
+                .map_err(|e| format!("invalid search url: {}", e.to_string()))?;
             search_url
                 .query_pairs_mut()
                 .append_pair("ids", hash)
                 .append_pair("fields", &JSON_QUERY);
-            let content = match Self::get_content(&search_url, client).await {
+            let content = match Self::request_content_as_bytes(&search_url.as_str(), client).await {
                 Ok(v) => v,
                 Err(_) => continue,
             };
@@ -129,12 +142,156 @@ impl Search {
                     }
                 };
             book.iter_mut().for_each(|b| {
-                if self.mirror.cover_pattern.is_some() {
-                    b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
-                }
+                b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
             });
             parsed_books.append(&mut book);
         }
-        parsed_books
+        Ok(parsed_books)
+    }
+
+    pub fn get_cover_and_search_urls(&self) -> Result<(String, String), String> {
+        //  TODO: do this computation earlier so we don't need to do this on every search
+
+        let cover_url = self
+            .libgen_metadata
+            .mirrors
+            .clone()
+            .into_iter()
+            .find(|el| el.non_fiction_cover_url.is_some())
+            .ok_or("Couldn't find a mirror with a cover url")?
+            .non_fiction_cover_url
+            .unwrap();
+
+        let search_url = self
+            .libgen_metadata
+            .mirrors
+            .clone()
+            .into_iter()
+            .find(|el| el.non_fiction_sync_url.is_some())
+            .ok_or("Couldn't find a mirror with a search url")?
+            .non_fiction_sync_url
+            .unwrap();
+
+        Ok((cover_url, search_url))
+    }
+}
+
+pub struct SearchBuilder {
+    query: String,
+    max_results: u32,
+    search_option: SearchOption,
+    download_url: _Url,
+    search_url: _Url,
+    libgen_metadata: LibgenMetadata,
+}
+
+impl SearchBuilder {
+    pub fn new(libgen_metadata: LibgenMetadata, query: String) -> Self {
+        let search_url = libgen_metadata.searchable_urls[0].clone();
+        let download_url = libgen_metadata.downloadable_urls[0].clone();
+        Self {
+            query,
+            max_results: 25,
+            search_option: SearchOption::Default,
+            search_url,
+            download_url,
+            libgen_metadata: libgen_metadata,
+        }
+    }
+
+    pub fn max_results(mut self, max_results: u32) -> Self {
+        self.max_results = max_results;
+        self
+    }
+
+    pub fn search_option(mut self, search_option: SearchOption) -> Self {
+        self.search_option = search_option;
+        self
+    }
+
+    pub fn download_url(mut self, download_url: _Url) -> Self {
+        self.download_url = download_url;
+        self
+    }
+
+    pub fn search_url(mut self, search_url: _Url) -> Self {
+        self.search_url = search_url;
+        self
+    }
+
+    pub fn build(self) -> Search {
+        Search {
+            query: self.query,
+            max_results: self.max_results,
+            search_option: self.search_option,
+            search_url: self.search_url,
+            download_url: self.download_url,
+            libgen_metadata: self.libgen_metadata,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::api::{mirrors::LibgenMetadata, search::SearchBuilder};
+
+    #[tokio::test]
+    async fn it_builds_correctly() {
+        let metadata = LibgenMetadata::from_json_file(None).await.unwrap();
+        let search = SearchBuilder::new(metadata.clone(), "test".to_string())
+            .max_results(50)
+            .search_option(super::SearchOption::Default)
+            .build();
+        assert_eq!(search.query, "test");
+        assert_eq!(search.max_results, 50);
+        assert_eq!(search.search_option, super::SearchOption::Default);
+        assert_eq!(search.download_url, metadata.downloadable_urls[0]);
+        assert_eq!(search.search_url, metadata.searchable_urls[0]);
+    }
+
+    #[tokio::test]
+    async fn it_searches() {
+        let metadata = LibgenMetadata::from_json_file(None).await.unwrap();
+        let search = SearchBuilder::new(metadata, "rust zero to production".to_string())
+            .max_results(15)
+            .search_option(super::SearchOption::Default)
+            .build()
+            .search()
+            .await;
+        assert!(search.is_ok());
+    }
+
+    #[test]
+    fn errors_if_not_a_single_downlodable_url() {
+        let json_str_with_search = "[{\"host_label\":\"libgen.is\",\"host_url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\"}]";
+        assert!(LibgenMetadata::from_json_str(json_str_with_search).is_err())
+    }
+
+    #[test]
+    fn errors_if_not_a_single_searchable_url() {
+        let json_str_with_download = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\"}]";
+        assert!(LibgenMetadata::from_json_str(json_str_with_download).is_err())
+    }
+
+    #[test]
+    fn creates_metadata_if_downloads_and_searches_are_present() {
+        let json_str = "[{\"host_label\":\"libgen.is\",\"host_url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\",\"non_fiction_download_url\":\"http://libgen.is/get.php\"}]";
+        assert!(LibgenMetadata::from_json_str(json_str).is_ok())
+    }
+
+    #[test]
+    fn errors_if_no_sync_url() {
+        let json_str = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"search_url\":\"https://libgen.st/search.php\",\"non_fiction_cover_url\":\"http://libgen.st/covers/{cover-url}\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\"}]";
+        let metadata = LibgenMetadata::from_json_str(json_str).unwrap();
+        let search = SearchBuilder::new(metadata, "rust zero to production".to_string()).build();
+        assert!(search.get_cover_and_search_urls().is_err())
+    }
+
+    #[test]
+    fn errors_if_no_cover_url() {
+        let json_str = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"search_url\":\"https://libgen.st/search.php\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\",\"non_fiction_sync_url\":\"http://libgen.rs/json.php\"}]";
+        let metadata = LibgenMetadata::from_json_str(json_str).unwrap();
+        let search = SearchBuilder::new(metadata, "rust zero to production".to_string()).build();
+        assert!(search.get_cover_and_search_urls().is_err())
     }
 }

@@ -26,6 +26,7 @@ impl Mirror {
     }
 }
 
+#[derive(Clone)]
 pub struct LibgenMetadata {
     pub mirrors: Vec<Mirror>,
     pub searchable_urls: Vec<Url>,
@@ -70,6 +71,12 @@ impl LibgenMetadata {
             }
         }
 
+        if searchable_urls.is_empty() {
+            return Err("No searchable urls found in the provided json".to_string());
+        }
+        if downloadable_urls.is_empty() {
+            return Err("No downloadable urls found in the provided json".to_string());
+        }
         Ok(LibgenMetadata {
             mirrors,
             downloadable_urls,
@@ -78,7 +85,7 @@ impl LibgenMetadata {
     }
 }
 
-//  need better naming, maybe use the url crate
+#[derive(Clone, Debug, PartialEq)]
 pub struct Url {
     pub host_label: String,
     pub url: String,
@@ -88,8 +95,6 @@ pub struct Url {
 mod tests {
     use crate::api::mirrors::LibgenMetadata;
 
-    static VALID_MIRROR_JSON: &str = "[{\"host_label\":\"libgen.me\",\"host_url\":\"https://libgen.me/\",\"non_fiction_download_url\":\"https://libgen.me/book/{md5}\"}]";
-
     #[tokio::test]
     async fn errors_on_unexisting_file() {
         assert!(
@@ -97,10 +102,5 @@ mod tests {
                 .await
                 .is_err()
         );
-    }
-
-    #[test]
-    fn parses_correct_json() {
-        assert!(LibgenMetadata::from_json_str(VALID_MIRROR_JSON).is_ok())
     }
 }

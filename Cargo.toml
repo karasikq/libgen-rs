@@ -25,6 +25,7 @@ tokio = { version = "1.20.1", features = ["full"] }
 indicatif = "0.17.0"
 dialoguer = { version = "0.10.2", features = ["fuzzy-select"] }
 console = "0.15.1"
+serde_qs = "0.10.1"
 
 [lib]
 name = "libgen"
