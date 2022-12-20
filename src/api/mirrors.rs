@@ -1,126 +1,106 @@
 use reqwest::Client;
 use reqwest::StatusCode;
-use serde_json::Value;
-use url::Url;
-use std::fmt;
+use serde::Deserialize;
+use serde::Serialize;
 
-pub enum MirrorType {
-    Search,
-    Download,
-}
-
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Mirror {
-    pub host_url: Url,
-    pub search_url: Option<Url>,
-    pub download_url: Option<Url>,
+    pub host_label: String,
+    pub host_url: String,
+    pub search_url: Option<String>,
+    pub non_fiction_download_url: Option<String>,
+    pub non_fiction_cover_url: Option<String>,
+    pub non_fiction_sync_url: Option<String>,
     pub download_pattern: Option<String>,
-    pub sync_url: Option<Url>,
     pub cover_pattern: Option<String>,
 }
 
 impl Mirror {
     pub async fn check_connection(&self, client: &Client) -> Result<(), StatusCode> {
-        let resp = client.get(self.host_url.as_str()).send();
-        match resp.await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.status().unwrap()),
-        }
-    }
-
-}
-
-impl fmt::Display for Mirror {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.host_url)
+        client
+            .get(self.host_url.as_str())
+            .send()
+            .await
+            .map(|_| ())
+            .map_err(|e| e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
     }
 }
 
-pub struct MirrorList {
-    pub search_mirrors: Vec<Mirror>,
-    pub download_mirrors: Vec<Mirror>,
+pub struct LibgenMetadata {
+    pub mirrors: Vec<Mirror>,
+    pub searchable_urls: Vec<Url>,
+    pub downloadable_urls: Vec<Url>,
 }
 
-impl MirrorList {
-    pub fn parse_mirrors(json: &str) -> MirrorList {
-        let mut search_mirrors: Vec<Mirror> = Vec::new();
-        let mut download_mirrors: Vec<Mirror> = Vec::new();
-
-        let map: Value = serde_json::from_str(json).unwrap();
-        map.as_object().unwrap().iter().for_each(|(_k, v)| {
-            let search_url = v
-                .get("SearchUrl")
-                .map(|v| Url::parse(v.as_str().unwrap()).unwrap());
-            let host_url = v
-                .get("Host")
-                .map(|v| Url::parse(v.as_str().unwrap()).unwrap());
-            let download_url = v
-                .get("NonFictionDownloadUrl")
-                .map(|v| Url::parse(&v.as_str().unwrap().replace("{md5}", "")).unwrap());
-            let download_pattern = v
-                .get("NonFictionDownloadUrl")
-                .map(|v| v.as_str().unwrap().to_owned());
-            let sync_url = v
-                .get("NonFictionSynchronizationUrl")
-                .map(|v| Url::parse(v.as_str().unwrap()).unwrap());
-            let cover_pattern = v
-                .get("NonFictionCoverUrl")
-                .map(|v| String::from(v.as_str().unwrap()));
-            if let Some(..) = host_url {
-                if search_url.is_some() {
-                    search_mirrors.push(Mirror {
-                        host_url: host_url.unwrap(),
-                        search_url,
-                        download_url,
-                        download_pattern,
-                        sync_url,
-                        cover_pattern,
-                    })
-                } else if download_url.is_some() {
-                    download_mirrors.push(Mirror {
-                        host_url: host_url.unwrap(),
-                        search_url,
-                        download_url,
-                        download_pattern,
-                        sync_url,
-                        cover_pattern
-                    })
-                }
-            }
-        });
-        MirrorList {
-            search_mirrors,
-            download_mirrors,
-        }
+impl LibgenMetadata {
+    pub async fn from_json_file(file: Option<&str>) -> Result<LibgenMetadata, String> {
+        let file_content = std::fs::read(file.unwrap_or("mirrors.json")).map_err(|e| {
+            format!(
+                "Couldn't read the provided json file: {}",
+                e.to_string().to_lowercase()
+            )
+        })?;
+        let parsed_file_content = std::str::from_utf8(&file_content)
+            .map_err(|e| {
+                format!(
+                    "Couldn't parse the provided json file to string format: {}",
+                    e.to_string().to_lowercase()
+                )
+            })?
+            .to_owned();
+        LibgenMetadata::from_json_str(parsed_file_content.as_str())
     }
 
-    pub async fn get_working_mirror(
-        &self,
-        mirror_type: MirrorType,
-        client: &Client,
-    ) -> Result<Mirror, &'static str> {
-        if let MirrorType::Search = mirror_type {
-            for mirror in self.search_mirrors.iter() {
-                match mirror.check_connection(client).await {
-                    Ok(_) => return Ok(mirror.clone()),
-                    Err(_e) => continue,
-                };
+    pub fn from_json_str(json: &str) -> Result<LibgenMetadata, String> {
+        let mirrors: Vec<Mirror> = serde_json::from_str(json).map_err(|e| e.to_string())?;
+        let mut downloadable_urls: Vec<Url> = Vec::new();
+        let mut searchable_urls: Vec<Url> = Vec::new();
+        for mirror in &mirrors {
+            if mirror.non_fiction_download_url.is_some() {
+                downloadable_urls.push(Url {
+                    host_label: mirror.host_label.clone(),
+                    url: mirror.non_fiction_download_url.clone().unwrap(),
+                });
             }
-        } else {
-            for mirror in self.download_mirrors.iter() {
-                match mirror.check_connection(client).await {
-                    Ok(_) => return Ok(mirror.clone()),
-                    Err(_e) => continue,
-                };
+            if mirror.search_url.is_some() {
+                searchable_urls.push(Url {
+                    host_label: mirror.host_label.clone(),
+                    url: mirror.search_url.clone().unwrap(),
+                });
             }
         }
-        Err("Couldn't reach mirrors")
+
+        Ok(LibgenMetadata {
+            mirrors,
+            downloadable_urls,
+            searchable_urls,
+        })
+    }
+}
+
+//  need better naming, maybe use the url crate
+pub struct Url {
+    pub host_label: String,
+    pub url: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::api::mirrors::LibgenMetadata;
+
+    static VALID_MIRROR_JSON: &str = "[{\"host_label\":\"libgen.me\",\"host_url\":\"https://libgen.me/\",\"non_fiction_download_url\":\"https://libgen.me/book/{md5}\"}]";
+
+    #[tokio::test]
+    async fn errors_on_unexisting_file() {
+        assert!(
+            LibgenMetadata::from_json_file(Some("thisfiledoesnotexist.json"))
+                .await
+                .is_err()
+        );
     }
 
-    pub fn get(&self, mirror_type: MirrorType, index: usize) -> Result<Mirror, &'static str> {
-        match mirror_type {
-            MirrorType::Search => Ok(self.search_mirrors.get(index).unwrap().clone()),
-            MirrorType::Download => Ok(self.download_mirrors.get(index).unwrap().clone()),
-        }
+    #[test]
+    fn parses_correct_json() {
+        assert!(LibgenMetadata::from_json_str(VALID_MIRROR_JSON).is_ok())
     }
 }

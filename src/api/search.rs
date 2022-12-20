@@ -106,7 +106,7 @@ impl Search {
         for hash in hashes.iter() {
             let mut search_url = Url::parse(
                 self.mirror
-                    .sync_url
+                    .non_fiction_sync_url
                     .as_ref()
                     .expect("Expected an Url")
                     .as_str(),
