@@ -26,81 +26,8 @@ impl Mirror {
     }
 }
 
-#[derive(Clone)]
-pub struct LibgenMetadata {
-    pub mirrors: Vec<Mirror>,
-    pub searchable_urls: Vec<Url>,
-    pub downloadable_urls: Vec<Url>,
-}
-
-impl LibgenMetadata {
-    pub async fn from_json_file(file: Option<&str>) -> Result<LibgenMetadata, String> {
-        let file_content = std::fs::read(file.unwrap_or("mirrors.json")).map_err(|e| {
-            format!(
-                "Couldn't read the provided json file: {}",
-                e.to_string().to_lowercase()
-            )
-        })?;
-        let parsed_file_content = std::str::from_utf8(&file_content)
-            .map_err(|e| {
-                format!(
-                    "Couldn't parse the provided json file to string format: {}",
-                    e.to_string().to_lowercase()
-                )
-            })?
-            .to_owned();
-        LibgenMetadata::from_json_str(parsed_file_content.as_str())
-    }
-
-    pub fn from_json_str(json: &str) -> Result<LibgenMetadata, String> {
-        let mirrors: Vec<Mirror> = serde_json::from_str(json).map_err(|e| e.to_string())?;
-        let mut downloadable_urls: Vec<Url> = Vec::new();
-        let mut searchable_urls: Vec<Url> = Vec::new();
-        for mirror in &mirrors {
-            if mirror.non_fiction_download_url.is_some() {
-                downloadable_urls.push(Url {
-                    host_label: mirror.host_label.clone(),
-                    url: mirror.non_fiction_download_url.clone().unwrap(),
-                });
-            }
-            if mirror.search_url.is_some() {
-                searchable_urls.push(Url {
-                    host_label: mirror.host_label.clone(),
-                    url: mirror.search_url.clone().unwrap(),
-                });
-            }
-        }
-
-        if searchable_urls.is_empty() {
-            return Err("No searchable urls found in the provided json".to_string());
-        }
-        if downloadable_urls.is_empty() {
-            return Err("No downloadable urls found in the provided json".to_string());
-        }
-        Ok(LibgenMetadata {
-            mirrors,
-            downloadable_urls,
-            searchable_urls,
-        })
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Url {
     pub host_label: String,
     pub url: String,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::api::mirrors::LibgenMetadata;
-
-    #[tokio::test]
-    async fn errors_on_unexisting_file() {
-        assert!(
-            LibgenMetadata::from_json_file(Some("thisfiledoesnotexist.json"))
-                .await
-                .is_err()
-        );
-    }
 }

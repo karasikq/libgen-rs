@@ -10,7 +10,7 @@ use url::Url;
 use crate::api::book::Book;
 use crate::api::mirrors::Url as _Url;
 
-use super::mirrors::LibgenMetadata;
+use crate::api::metadata::LibgenMetadata;
 
 lazy_static! {
     static ref HASH_REGEX: Regex = Regex::new(r"[A-Z0-9]{32}").unwrap();
@@ -233,11 +233,13 @@ impl SearchBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::api::{mirrors::LibgenMetadata, search::SearchBuilder};
+    use crate::api::{metadata::LibgenMetadata, search::SearchBuilder};
 
     #[tokio::test]
     async fn it_builds_correctly() {
-        let metadata = LibgenMetadata::from_json_file(None).await.unwrap();
+        let metadata = LibgenMetadata::from_json_file("mirrors.json")
+            .await
+            .unwrap();
         let search = SearchBuilder::new(metadata.clone(), "test".to_string())
             .max_results(50)
             .search_option(super::SearchOption::Default)
@@ -251,7 +253,9 @@ mod test {
 
     #[tokio::test]
     async fn it_searches() {
-        let metadata = LibgenMetadata::from_json_file(None).await.unwrap();
+        let metadata = LibgenMetadata::from_json_file("mirrors.json")
+            .await
+            .unwrap();
         let search = SearchBuilder::new(metadata, "rust zero to production".to_string())
             .max_results(15)
             .search_option(super::SearchOption::Default)

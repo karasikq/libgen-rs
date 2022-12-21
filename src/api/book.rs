@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{cmp::min, fmt, fs::File, io::Write, path::PathBuf};
 use url::Url;
 
-use super::mirrors::LibgenMetadata;
+use crate::api::metadata::LibgenMetadata;
 
 lazy_static! {
     static ref KEY_REGEX: Regex = Regex::new(r"get\.php\?md5=\w{32}&key=\w{16}").unwrap();
@@ -23,7 +23,7 @@ lazy_static! {
             .unwrap();
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Book {
     pub id: String,
     pub title: String,
