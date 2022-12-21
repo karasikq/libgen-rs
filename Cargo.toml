@@ -26,6 +26,8 @@ indicatif = "0.17.0"
 dialoguer = { version = "0.10.2", features = ["fuzzy-select"] }
 console = "0.15.1"
 serde_qs = "0.10.1"
+strum = { version = "0.24.1", features = ["derive"] }
+strum_macros = "0.24.3"
 
 [lib]
 name = "libgen"

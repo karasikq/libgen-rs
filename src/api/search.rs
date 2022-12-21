@@ -1,3 +1,5 @@
+use crate::api::book::Book;
+use crate::api::mirrors::Url as _Url;
 use bytes::Bytes;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -5,10 +7,8 @@ use regex::bytes::Regex;
 use reqwest::Client;
 use serde::Deserialize;
 use serde::Serialize;
+use strum::{Display, EnumIter, EnumString};
 use url::Url;
-
-use crate::api::book::Book;
-use crate::api::mirrors::Url as _Url;
 
 use crate::api::metadata::LibgenMetadata;
 
@@ -19,9 +19,10 @@ lazy_static! {
             .to_string();
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
-pub enum SearchOption {
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, EnumIter, EnumString, Display)]
+pub enum SearchIn {
     #[serde(rename = "def")]
+    #[strum(to_string = "Default (All fields)")]
     Default,
     #[serde(rename = "title")]
     Title,
@@ -45,10 +46,18 @@ pub enum SearchOption {
     Extension,
 }
 
+impl Default for SearchIn {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+//  TODO: add offset support
+//  TODO: add sorting support
 pub struct Search {
     pub query: String,
     pub max_results: u32,
-    pub search_option: SearchOption,
+    pub search_option: SearchIn,
     pub search_url: _Url,
     pub download_url: _Url,
     libgen_metadata: LibgenMetadata,
@@ -62,11 +71,11 @@ pub struct SearchQuery {
     pub open: String,
     pub view: String,
     pub phrase: String,
-    pub column: SearchOption,
+    pub column: SearchIn,
 }
 
 impl SearchQuery {
-    pub fn new(query: String, max_results: u32, search_option: SearchOption) -> Self {
+    pub fn new(query: String, max_results: u32, search_option: SearchIn) -> Self {
         Self {
             req: query,
             lg_topic: "libgen".to_string(),
@@ -122,6 +131,7 @@ impl Search {
 
         let (cover_url, search_url) = self.get_cover_and_search_urls()?;
 
+        //  TODO: use tokio tasks this bih
         for hash in hashes.iter() {
             let mut search_url = Url::parse(search_url.as_str())
                 .map_err(|e| format!("invalid search url: {}", e.to_string()))?;
@@ -136,8 +146,12 @@ impl Search {
             let mut book: Vec<Book> =
                 match serde_json::from_str(std::str::from_utf8(&content).unwrap()) {
                     Ok(v) => v,
-                    Err(_) => {
-                        println!("Couldn't parse json");
+                    Err(e) => {
+                        println!(
+                            "Couldn't parse json: {} - {}",
+                            e.to_string(),
+                            std::str::from_utf8(&content).unwrap()
+                        );
                         continue;
                     }
                 };
@@ -179,7 +193,7 @@ impl Search {
 pub struct SearchBuilder {
     query: String,
     max_results: u32,
-    search_option: SearchOption,
+    search_option: SearchIn,
     download_url: _Url,
     search_url: _Url,
     libgen_metadata: LibgenMetadata,
@@ -192,7 +206,7 @@ impl SearchBuilder {
         Self {
             query,
             max_results: 25,
-            search_option: SearchOption::Default,
+            search_option: SearchIn::Default,
             search_url,
             download_url,
             libgen_metadata: libgen_metadata,
@@ -204,7 +218,7 @@ impl SearchBuilder {
         self
     }
 
-    pub fn search_option(mut self, search_option: SearchOption) -> Self {
+    pub fn search_option(mut self, search_option: SearchIn) -> Self {
         self.search_option = search_option;
         self
     }
@@ -242,11 +256,11 @@ mod test {
             .unwrap();
         let search = SearchBuilder::new(metadata.clone(), "test".to_string())
             .max_results(50)
-            .search_option(super::SearchOption::Default)
+            .search_option(super::SearchIn::Default)
             .build();
         assert_eq!(search.query, "test");
         assert_eq!(search.max_results, 50);
-        assert_eq!(search.search_option, super::SearchOption::Default);
+        assert_eq!(search.search_option, super::SearchIn::Default);
         assert_eq!(search.download_url, metadata.downloadable_urls[0]);
         assert_eq!(search.search_url, metadata.searchable_urls[0]);
     }
@@ -258,7 +272,7 @@ mod test {
             .unwrap();
         let search = SearchBuilder::new(metadata, "rust zero to production".to_string())
             .max_results(15)
-            .search_option(super::SearchOption::Default)
+            .search_option(super::SearchIn::Default)
             .build()
             .search()
             .await;

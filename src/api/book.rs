@@ -32,7 +32,7 @@ pub struct Book {
     pub year: String,
     pub language: String,
     pub pages: String,
-    pub descr: String,
+    pub descr: Option<String>,
     pub timeadded: String,
     pub timelastmodified: String,
     pub publisher: String,
