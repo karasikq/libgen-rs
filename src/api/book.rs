@@ -50,7 +50,7 @@ impl Book {
         host_url: &str,
         libgen_metadata: &LibgenMetadata,
         download_path: &str,
-        amount_downloaded_out: Option<&impl Fn(u64)>,
+        on_download_chunk: Option<&impl Fn(u64)>,
     ) -> Result<(), String> {
         let download_url = &libgen_metadata.downloadable_urls[0];
 
@@ -59,9 +59,11 @@ impl Book {
             .await
             .map_err(|e| e.to_string())?;
 
-        let total_size = downloaded.content_length().unwrap();
+        let total_size = downloaded
+            .content_length()
+            .ok_or("Couldn't extract the content length from the downloaded book")?;
         let mut book_download_path = PathBuf::from(download_path);
-        std::fs::create_dir_all(&book_download_path).unwrap();
+        std::fs::create_dir_all(&book_download_path).map_err(|e| e.to_string())?;
 
         //  TODO: review the max path/file name length for windows and linux
         let mut book_title = match self.title.len() {
@@ -75,19 +77,20 @@ impl Book {
         book_download_path.set_extension(&self.extension);
 
         let mut stream = downloaded.bytes_stream();
-        let mut file = File::create(book_download_path).unwrap();
+        let mut file = File::create(book_download_path).map_err(|e| e.to_string())?;
 
         let mut amount_downloaded: u64 = 0;
-        let has_callback = amount_downloaded_out.as_ref().is_some();
         while let Some(item) = stream.next().await {
-            let chunk = item.or(Err("Error while downloading file")).unwrap();
-            file.write_all(&chunk).unwrap();
+            let chunk = item
+                .or(Err("Error while downloading file"))
+                .map_err(|e| e.to_string())?;
+            file.write_all(&chunk).map_err(|e| e.to_string())?;
             let new = min(amount_downloaded + (chunk.len() as u64), total_size);
 
             amount_downloaded = new;
 
-            if has_callback {
-                amount_downloaded_out.as_ref().unwrap()(amount_downloaded);
+            if let Some(callback) = on_download_chunk {
+                callback(amount_downloaded);
             }
         }
         Ok(())
@@ -98,9 +101,9 @@ impl Book {
         client: &Client,
         download_url_with_md5: &str,
         host_url: &str,
-    ) -> Result<reqwest::Response, &'static str> {
+    ) -> Result<reqwest::Response, String> {
         let download_page_url_md5 = download_url_with_md5.replace("{md5}", &self.md5);
-        let download_page_url = Url::parse(&download_page_url_md5).unwrap();
+        let download_page_url = Url::parse(&download_page_url_md5).map_err(|e| e.to_string())?;
 
         let content = client
             .get(download_page_url)
@@ -112,61 +115,45 @@ impl Book {
             .or(Err("Couldn't get mirror page"))?;
 
         //  TODO: add more info to the libgen metadata so we dont need to hardcode this stuff
-        match host_url {
-            "https://libgen.rocks/" => {
-                match self.download_from_ads(&content, client, host_url).await {
-                    Ok(b) => Ok(b),
-                    Err(_e) => Err("Download error"),
-                }
+        return match host_url {
+            "https://libgen.rocks/" | "http://libgen.lc/" => {
+                Self::download_from_ads(&content, client, host_url).await
             }
-            "http://libgen.lc/" => match self.download_from_ads(&content, client, host_url).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            "http://libgen.lol/" => {
-                match self.download_from_lol(&content, client, host_url).await {
-                    Ok(b) => Ok(b),
-                    Err(_e) => Err("Download error"),
-                }
+            "http://libgen.lol/" | "http://libgen.me/" => {
+                Self::download_from_lol(&content, client, host_url).await
             }
-            "http://libgen.me/" => match self.download_from_lol(&content, client, host_url).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            &_ => Err("Couldn't find download url"),
-        }
+            _ => Err("Couldn't find download url".to_string()),
+        };
     }
 
     async fn download_from_ads(
-        &self,
         download_page: &Bytes,
         client: &Client,
         host_url: &str,
-    ) -> Result<reqwest::Response, &'static str> {
-        let key = KEY_REGEX
+    ) -> Result<reqwest::Response, String> {
+        let Some(key) = KEY_REGEX
             .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        if key.is_none() {
-            return Err("Couldn't find download key");
-        }
+            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
+            else {
+                return Err("Couldn't find download key".to_string());
+            };
 
         let download_url = Url::parse(host_url).unwrap();
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap()).unwrap();
+        let download_url = base_url.parse(key).unwrap();
         client
             .get(download_url)
             .send()
             .await
-            .or(Err("Couldn't connect to mirror"))
+            .or(Err("Couldn't connect to mirror".to_string()))
     }
 
     async fn download_from_lol(
-        &self,
         download_page: &Bytes,
         client: &Client,
         host_url: &str,
-    ) -> Result<reqwest::Response, &'static str> {
+    ) -> Result<reqwest::Response, String> {
         let mut key = KEY_REGEX_LOL
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
@@ -181,18 +168,18 @@ impl Book {
                 .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
         }
         if key.is_none() {
-            return Err("Couldn't find download key");
+            return Err("Couldn't find download key".to_string());
         }
 
-        let download_url = Url::parse(host_url).unwrap();
+        let download_url = Url::parse(host_url).map_err(|e| e.to_string())?;
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap()).unwrap();
+        let download_url = base_url.parse(key.unwrap()).map_err(|e| e.to_string())?;
         client
             .get(download_url)
             .send()
             .await
-            .or(Err("Couldn't connect to mirror"))
+            .or(Err("Couldn't connect to mirror".to_string()))
     }
 }
 
