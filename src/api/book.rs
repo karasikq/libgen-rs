@@ -32,6 +32,9 @@ pub struct Book {
     pub year: String,
     pub language: String,
     pub pages: String,
+    pub descr: String,
+    pub timeadded: String,
+    pub timelastmodified: String,
     pub publisher: String,
     pub edition: String,
     pub extension: String,
@@ -71,10 +74,6 @@ impl Book {
         book_download_path.push(book_title);
         book_download_path.set_extension(&self.extension);
 
-        println!(
-            "book_download_path with extension: {}",
-            book_download_path.as_os_str().to_str().unwrap()
-        );
         let mut stream = downloaded.bytes_stream();
         let mut file = File::create(book_download_path).unwrap();
 

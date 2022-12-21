@@ -15,7 +15,7 @@ use super::mirrors::LibgenMetadata;
 lazy_static! {
     static ref HASH_REGEX: Regex = Regex::new(r"[A-Z0-9]{32}").unwrap();
     static ref JSON_QUERY: String =
-        "id,title,author,filesize,extension,md5,year,language,pages,publisher,edition,coverurl"
+        "id,title,author,filesize,extension,md5,year,language,pages,publisher,edition,coverurl,descr,timeadded,timelastmodified"
             .to_string();
 }
 
