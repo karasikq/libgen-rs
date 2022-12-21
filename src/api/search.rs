@@ -133,41 +133,43 @@ impl Search {
     async fn get_books(&self, hashes: &[String], client: &Client) -> Result<Vec<Book>, String> {
         let mut parsed_books: Vec<Book> = Vec::new();
 
+        //  TODO: get multiple urls from each kind so we have less chance to get rate limited
         let (cover_url, search_url) = self.get_cover_and_search_urls()?;
         let search_url = Arc::new(search_url);
         let cover_url = Arc::new(cover_url);
         let mut futs = FuturesUnordered::new();
 
         //  this can be refactored
-        for hash in hashes {
+        //  TODO: remove the myriad of unwraps from below
+        for hash in hashes.iter() {
             let search_url = search_url.clone();
             let cover_url = cover_url.clone();
             let fut = async move {
-                let search_url = Url::parse(search_url.as_str())
+                let mut result: Vec<Book> = Vec::new();
+                let mut search_url = Url::parse(search_url.as_str())
                     .map_err(|e| format!("invalid search url: {}", e.to_string()))
                     .unwrap();
-                let mut result: Vec<Book> = Vec::new();
                 search_url
-                    .clone()
                     .query_pairs_mut()
                     .append_pair("ids", hash)
                     .append_pair("fields", &JSON_QUERY);
-                let content: Option<Bytes> =
+                let content: Result<Bytes, reqwest::Error> =
                     match Self::request_content_as_bytes(&search_url.as_str(), client).await {
-                        Ok(v) => Some(v),
-                        Err(_) => None,
+                        Ok(c) => Ok(c),
+                        Err(_) => {
+                            return result;
+                        }
                     };
-                if content.is_none() {
-                    return result;
-                }
-                let mut books: Option<Vec<Book>> =
-                    match serde_json::from_str(std::str::from_utf8(&content.unwrap()).unwrap()) {
-                        Ok(v) => v,
-                        Err(_) => None,
-                    };
-                if books.is_none() {
-                    return result;
-                }
+
+                let mut books: Result<Vec<Book>, String> = match serde_json::from_str::<Vec<Book>>(
+                    std::str::from_utf8(&content.unwrap()).unwrap(),
+                ) {
+                    Ok(v) => Ok(v),
+                    Err(_) => {
+                        return result;
+                    }
+                };
+
                 books = books.map(|mut v| {
                     v.iter_mut().for_each(|b| {
                         b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
@@ -180,7 +182,7 @@ impl Search {
             futs.push(fut);
 
             //  TODO: don't hardcode this
-            if futs.len() == 10 {
+            if futs.len() == 5 {
                 parsed_books.append(&mut futs.next().await.unwrap());
             }
         }
