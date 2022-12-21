@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use crate::api::book::Book;
 use crate::api::mirrors::Url as _Url;
 use bytes::Bytes;
+use futures_util::stream::FuturesUnordered;
+use futures_util::StreamExt;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
@@ -130,35 +134,58 @@ impl Search {
         let mut parsed_books: Vec<Book> = Vec::new();
 
         let (cover_url, search_url) = self.get_cover_and_search_urls()?;
+        let search_url = Arc::new(search_url);
+        let cover_url = Arc::new(cover_url);
+        let mut futs = FuturesUnordered::new();
 
-        //  TODO: use tokio tasks this bih
-        for hash in hashes.iter() {
-            let mut search_url = Url::parse(search_url.as_str())
-                .map_err(|e| format!("invalid search url: {}", e.to_string()))?;
-            search_url
-                .query_pairs_mut()
-                .append_pair("ids", hash)
-                .append_pair("fields", &JSON_QUERY);
-            let content = match Self::request_content_as_bytes(&search_url.as_str(), client).await {
-                Ok(v) => v,
-                Err(_) => continue,
+        //  this can be refactored
+        for hash in hashes {
+            let search_url = search_url.clone();
+            let cover_url = cover_url.clone();
+            let fut = async move {
+                let search_url = Url::parse(search_url.as_str())
+                    .map_err(|e| format!("invalid search url: {}", e.to_string()))
+                    .unwrap();
+                let mut result: Vec<Book> = Vec::new();
+                search_url
+                    .clone()
+                    .query_pairs_mut()
+                    .append_pair("ids", hash)
+                    .append_pair("fields", &JSON_QUERY);
+                let content: Option<Bytes> =
+                    match Self::request_content_as_bytes(&search_url.as_str(), client).await {
+                        Ok(v) => Some(v),
+                        Err(_) => None,
+                    };
+                if content.is_none() {
+                    return result;
+                }
+                let mut books: Option<Vec<Book>> =
+                    match serde_json::from_str(std::str::from_utf8(&content.unwrap()).unwrap()) {
+                        Ok(v) => v,
+                        Err(_) => None,
+                    };
+                if books.is_none() {
+                    return result;
+                }
+                books = books.map(|mut v| {
+                    v.iter_mut().for_each(|b| {
+                        b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
+                    });
+                    v
+                });
+                result = books.unwrap();
+                result
             };
-            let mut book: Vec<Book> =
-                match serde_json::from_str(std::str::from_utf8(&content).unwrap()) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        println!(
-                            "Couldn't parse json: {} - {}",
-                            e.to_string(),
-                            std::str::from_utf8(&content).unwrap()
-                        );
-                        continue;
-                    }
-                };
-            book.iter_mut().for_each(|b| {
-                b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
-            });
-            parsed_books.append(&mut book);
+            futs.push(fut);
+
+            //  TODO: don't hardcode this
+            if futs.len() == 10 {
+                parsed_books.append(&mut futs.next().await.unwrap());
+            }
+        }
+        while let Some(item) = futs.next().await {
+            parsed_books.append(&mut item.clone());
         }
         Ok(parsed_books)
     }
@@ -267,16 +294,13 @@ mod test {
 
     #[tokio::test]
     async fn it_searches() {
-        let metadata = LibgenMetadata::from_json_file("mirrors.json")
-            .await
-            .unwrap();
-        let search = SearchBuilder::new(metadata, "rust zero to production".to_string())
-            .max_results(15)
+        let metadata = LibgenMetadata::new().unwrap();
+        let search = SearchBuilder::new(metadata, "rust".to_string())
+            .max_results(10)
             .search_option(super::SearchIn::Default)
-            .build()
-            .search()
-            .await;
-        assert!(search.is_ok());
+            .build();
+        let search_result = search.search().await;
+        assert!(search_result.is_ok());
     }
 
     #[test]
