@@ -102,6 +102,7 @@ impl Search {
             .map_err(|e| e.to_string())?;
         let book_hashes = Self::parse_hashes(&response);
         let books = self.get_books(&book_hashes, &reqwest_client).await?;
+
         Ok(books)
     }
 
@@ -132,7 +133,6 @@ impl Search {
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Result<Vec<Book>, String> {
         let mut parsed_books: Vec<Book> = Vec::new();
-
         //  TODO: get multiple urls from each kind so we have less chance to get rate limited
         let (cover_url, search_url) = self.get_cover_and_search_urls()?;
         let search_url = Arc::new(search_url);
@@ -156,11 +156,11 @@ impl Search {
                 let content: Result<Bytes, reqwest::Error> =
                     match Self::request_content_as_bytes(&search_url.as_str(), client).await {
                         Ok(c) => Ok(c),
-                        Err(_) => {
+                        Err(e) => {
+                            println!("error on content {}", e.to_string());
                             return result;
                         }
                     };
-
                 let mut books: Result<Vec<Book>, String> = match serde_json::from_str::<Vec<Book>>(
                     std::str::from_utf8(&content.unwrap()).unwrap(),
                 ) {
@@ -169,7 +169,6 @@ impl Search {
                         return result;
                     }
                 };
-
                 books = books.map(|mut v| {
                     v.iter_mut().for_each(|b| {
                         b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
@@ -296,7 +295,7 @@ mod test {
 
     #[tokio::test]
     async fn it_searches() {
-        let metadata = LibgenMetadata::new().unwrap();
+        let metadata = LibgenMetadata::new().await.unwrap();
         let search = SearchBuilder::new(metadata, "rust".to_string())
             .max_results(10)
             .search_option(super::SearchIn::Default)
@@ -305,36 +304,40 @@ mod test {
         assert!(search_result.is_ok());
     }
 
-    #[test]
-    fn errors_if_not_a_single_downlodable_url() {
+    #[tokio::test]
+    async fn errors_if_not_a_single_downlodable_url() {
         let json_str_with_search = "[{\"host_label\":\"libgen.is\",\"host_url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\"}]";
-        assert!(LibgenMetadata::from_json_str(json_str_with_search).is_err())
+        assert!(LibgenMetadata::from_json_str(json_str_with_search)
+            .await
+            .is_err())
     }
 
-    #[test]
-    fn errors_if_not_a_single_searchable_url() {
+    #[tokio::test]
+    async fn errors_if_not_a_single_searchable_url() {
         let json_str_with_download = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\"}]";
-        assert!(LibgenMetadata::from_json_str(json_str_with_download).is_err())
+        assert!(LibgenMetadata::from_json_str(json_str_with_download)
+            .await
+            .is_err())
     }
 
-    #[test]
-    fn creates_metadata_if_downloads_and_searches_are_present() {
+    #[tokio::test]
+    async fn creates_metadata_if_downloads_and_searches_are_present() {
         let json_str = "[{\"host_label\":\"libgen.is\",\"host_url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\",\"non_fiction_download_url\":\"http://libgen.is/get.php\"}]";
-        assert!(LibgenMetadata::from_json_str(json_str).is_ok())
+        assert!(LibgenMetadata::from_json_str(json_str).await.is_ok())
     }
 
-    #[test]
-    fn errors_if_no_sync_url() {
+    #[tokio::test]
+    async fn errors_if_no_sync_url() {
         let json_str = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"search_url\":\"https://libgen.st/search.php\",\"non_fiction_cover_url\":\"http://libgen.st/covers/{cover-url}\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\"}]";
-        let metadata = LibgenMetadata::from_json_str(json_str).unwrap();
+        let metadata = LibgenMetadata::from_json_str(json_str).await.unwrap();
         let search = SearchBuilder::new(metadata, "rust zero to production".to_string()).build();
         assert!(search.get_cover_and_search_urls().is_err())
     }
 
-    #[test]
-    fn errors_if_no_cover_url() {
+    #[tokio::test]
+    async fn errors_if_no_cover_url() {
         let json_str = "[{\"host_label\":\"library.lol\",\"host_url\":\"http://libgen.lol/\",\"search_url\":\"https://libgen.st/search.php\",\"non_fiction_download_url\":\"http://library.lol/main/{md5}\",\"non_fiction_sync_url\":\"http://libgen.rs/json.php\"}]";
-        let metadata = LibgenMetadata::from_json_str(json_str).unwrap();
+        let metadata = LibgenMetadata::from_json_str(json_str).await.unwrap();
         let search = SearchBuilder::new(metadata, "rust zero to production".to_string()).build();
         assert!(search.get_cover_and_search_urls().is_err())
     }

@@ -11,14 +11,14 @@ pub struct LibgenMetadata {
 
 impl LibgenMetadata {
     /// From the default static mirrors
-    pub fn new() -> Result<Self, String> {
+    pub async fn new() -> Result<Self, String> {
         let mirrors = consts::MIRRORS.to_vec();
-        Self::from_mirror_vec(mirrors)
+        Self::from_mirror_vec(mirrors).await
     }
 
-    pub fn from_mirror_vec(mirrors: Vec<Mirror>) -> Result<Self, String> {
+    pub async fn from_mirror_vec(mirrors: Vec<Mirror>) -> Result<Self, String> {
         let (downloadable_urls, searchable_urls) =
-            LibgenMetadata::try_get_down_and_search_urls(&mirrors)?;
+            LibgenMetadata::try_get_down_and_search_urls(&mirrors).await?;
         Ok(Self {
             mirrors,
             searchable_urls,
@@ -42,14 +42,14 @@ impl LibgenMetadata {
                 )
             })?
             .to_owned();
-        LibgenMetadata::from_json_str(parsed_file_content.as_str())
+        LibgenMetadata::from_json_str(parsed_file_content.as_str()).await
     }
 
     /// From a valid json string containing an array of mirrors
-    pub fn from_json_str(json: &str) -> Result<LibgenMetadata, String> {
+    pub async fn from_json_str(json: &str) -> Result<LibgenMetadata, String> {
         let mirrors: Vec<Mirror> = serde_json::from_str(json).map_err(|e| e.to_string())?;
         let (downloadable_urls, searchable_urls) =
-            LibgenMetadata::try_get_down_and_search_urls(&mirrors)?;
+            LibgenMetadata::try_get_down_and_search_urls(&mirrors).await?;
         Ok(LibgenMetadata {
             mirrors,
             downloadable_urls,
@@ -62,10 +62,16 @@ impl LibgenMetadata {
     /// If no searchable or downloadable urls are found, it will return an error.
     ///
     /// The first element of the tuple is the downloadable urls, the second is the searchable urls.
-    fn try_get_down_and_search_urls(mirrors: &Vec<Mirror>) -> Result<(Vec<Url>, Vec<Url>), String> {
+    async fn try_get_down_and_search_urls(
+        mirrors: &Vec<Mirror>,
+    ) -> Result<(Vec<Url>, Vec<Url>), String> {
         let mut downloadable_urls: Vec<Url> = Vec::new();
         let mut searchable_urls: Vec<Url> = Vec::new();
         for mirror in mirrors {
+            let client = reqwest::Client::new();
+            if mirror.check_connection(&client).await.is_err() {
+                continue;
+            };
             if mirror.non_fiction_download_url.is_some() {
                 downloadable_urls.push(Url {
                     host_label: mirror.host_label.clone(),
