@@ -2,7 +2,7 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
-use reqwest::Client;
+use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use std::{cmp::min, fmt, fs::File, io::Write, path::PathBuf};
 use url::Url;
@@ -50,7 +50,7 @@ impl Book {
         host_url: &str,
         libgen_metadata: &LibgenMetadata,
         download_path: &str,
-        on_download_chunk: Option<&impl Fn(u64)>,
+        progress_callback: Option<impl FnOnce(u64) -> () + Copy>,
     ) -> Result<(), String> {
         let download_url = &libgen_metadata.downloadable_urls[0];
 
@@ -88,8 +88,7 @@ impl Book {
             let new = min(amount_downloaded + (chunk.len() as u64), total_size);
 
             amount_downloaded = new;
-
-            if let Some(callback) = on_download_chunk {
+            if let Some(callback) = progress_callback {
                 callback(amount_downloaded);
             }
         }
@@ -114,13 +113,23 @@ impl Book {
             .await
             .or(Err("Couldn't get mirror page"))?;
 
-        //  TODO: add more info to the libgen metadata so we dont need to hardcode this stuff
+        //  I don't really know why this happens, but the compiler will complain if i send and
+        //  await the requests inside the functions below while in a multithreaded environment or in a tokio::spawn
+        //  TODO: add more info to the libgen metadata so we dont need to hardcode these urls
         return match host_url {
             "https://libgen.rocks/" | "http://libgen.lc/" => {
-                Self::download_from_ads(&content, client, host_url).await
+                Ok(Self::download_from_ads(&content, client, host_url)
+                    .await?
+                    .send()
+                    .await
+                    .map_err(|e| e.to_string())?)
             }
             "http://libgen.lol/" | "http://libgen.me/" => {
-                Self::download_from_lol(&content, client, host_url).await
+                Ok(Self::download_from_lol(&content, client, host_url)
+                    .await?
+                    .send()
+                    .await
+                    .map_err(|e| e.to_string())?)
             }
             _ => Err("Couldn't find download url".to_string()),
         };
@@ -130,30 +139,25 @@ impl Book {
         download_page: &Bytes,
         client: &Client,
         host_url: &str,
-    ) -> Result<reqwest::Response, String> {
+    ) -> Result<RequestBuilder, String> {
         let Some(key) = KEY_REGEX
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
             else {
                 return Err("Couldn't find download key".to_string());
             };
-
-        let download_url = Url::parse(host_url).unwrap();
+        let download_url = Url::parse(host_url).map_err(|e| e.to_string())?;
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key).unwrap();
-        client
-            .get(download_url)
-            .send()
-            .await
-            .or(Err("Couldn't connect to mirror".to_string()))
+        let download_url = base_url.parse(key).map_err(|e| e.to_string())?;
+        Ok(client.get(download_url))
     }
 
     async fn download_from_lol(
         download_page: &Bytes,
         client: &Client,
         host_url: &str,
-    ) -> Result<reqwest::Response, String> {
+    ) -> Result<RequestBuilder, String> {
         let mut key = KEY_REGEX_LOL
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
@@ -175,11 +179,7 @@ impl Book {
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
         let download_url = base_url.parse(key.unwrap()).map_err(|e| e.to_string())?;
-        client
-            .get(download_url)
-            .send()
-            .await
-            .or(Err("Couldn't connect to mirror".to_string()))
+        Ok(client.get(download_url))
     }
 }
 
