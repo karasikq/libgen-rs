@@ -28,6 +28,7 @@ console = "0.15.1"
 serde_qs = "0.10.1"
 strum = { version = "0.24.1", features = ["derive"] }
 strum_macros = "0.24.3"
+tracing = "0.1.37"
 
 [lib]
 name = "libgen"

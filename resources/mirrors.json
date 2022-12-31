@@ -1,40 +1,47 @@
-{
-    "libgen.is": {
-        "Host": "http://libgen.is/",
-        "SearchUrl": "https://libgen.is/search.php",
-        "NonFictionCoverUrl": "http://libgen.is/covers/{cover-url}",
-        "NonFictionSynchronizationUrl": "http://libgen.is/json.php"
-    },
-    "libgen.rs": {
-        "Host": "http://libgen.rs/",
-        "SearchUrl": "https://libgen.rs/search.php",
-        "NonFictionCoverUrl": "http://libgen.rs/covers/{cover-url}",
-        "NonFictionSynchronizationUrl": "http://libgen.rs/json.php"
-    },
-    "libgen.st": {
-        "Host": "http://libgen.st/",
-        "SearchUrl": "https://libgen.st/search.php",
-        "NonFictionCoverUrl": "http://libgen.st/covers/{cover-url}",
-        "NonFictionSynchronizationUrl": "http://libgen.st/json.php"
-    },
-    "library.lol": {
-        "Host": "http://libgen.lol/",
-        "NonFictionDownloadUrl": "http://library.lol/main/{md5}",
-        "NonFictionCoverUrl": "http://libgen.rs/covers/{cover-url}",
-        "NonFictionSynchronizationUrl": "http://libgen.rs/json.php"
-    },
-    "libgen.lc": {
-        "Host": "http://libgen.lc/",
-        "NonFictionDownloadUrl": "http://libgen.lc/get.php?md5={md5}",
-        "NonFictionCoverUrl": "http://libgen.lc/covers/{cover-url}",
-        "NonFictionSynchronizationUrl": "http://libgen.ls/json.php"
-    },
-    "libgen.rocks": {
-        "Host": "https://libgen.rocks/",
-        "NonFictionDownloadUrl": "https://libgen.rocks/ads.php?md5={md5}"
-    },
-    "libgen.me": {
-        "Host": "https://libgen.me/",
-        "NonFictionDownloadUrl": "https://libgen.me/book/{md5}"
-    }
-}
+[
+	{
+		"label": "libgen.is",
+		"url": "http://libgen.is/",
+		"search_url": "https://libgen.is/search.php",
+		"cover_url": "http://libgen.is/covers/{cover-url}",
+		"json_search_url": "http://libgen.is/json.php"
+	},
+	{
+		"label": "libgen.rs",
+		"url": "http://libgen.rs/",
+		"search_url": "https://libgen.rs/search.php",
+		"cover_url": "http://libgen.rs/covers/{cover-url}",
+		"json_search_url": "http://libgen.rs/json.php"
+	},
+	{
+		"label": "libgen.st",
+		"url": "http://libgen.st/",
+		"search_url": "https://libgen.st/search.php",
+		"cover_url": "http://libgen.st/covers/{cover-url}",
+		"json_search_url": "http://libgen.st/json.php"
+	},
+	{
+		"label": "library.lol",
+		"url": "http://libgen.lol/",
+		"download_url": "http://library.lol/main/{md5}",
+		"cover_url": "http://libgen.rs/covers/{cover-url}",
+		"json_search_url": "http://libgen.rs/json.php"
+	},
+	{
+		"label": "libgen.lc",
+		"url": "http://libgen.lc/",
+		"download_url": "http://libgen.lc/get.php?md5={md5}",
+		"cover_url": "http://libgen.lc/covers/{cover-url}",
+		"json_search_url": "http://libgen.ls/json.php"
+	},
+	{
+		"label": "libgen.rocks",
+		"url": "https://libgen.rocks/",
+		"download_url": "https://libgen.rocks/ads.php?md5={md5}"
+	},
+	{
+		"label": "libgen.me",
+		"url": "https://libgen.me/",
+		"download_url": "https://libgen.me/book/{md5}"
+	}
+]

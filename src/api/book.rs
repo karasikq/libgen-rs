@@ -4,10 +4,12 @@ use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, fmt, fs::File, io::Write, path::PathBuf};
+use std::{cmp::min, fs::File, io::Write, path::PathBuf};
 use url::Url;
 
-use crate::api::metadata::LibgenMetadata;
+use crate::error::LibgenApiError;
+
+use super::mirrors::DownloadMirror;
 
 lazy_static! {
     static ref KEY_REGEX: Regex = Regex::new(r"get\.php\?md5=\w{32}&key=\w{16}").unwrap();
@@ -43,27 +45,29 @@ pub struct Book {
 }
 
 impl Book {
-    //  TODO: allow user to specify download mirror
     pub async fn download_to_path(
         &self,
-        client: &Client,
-        host_url: &str,
-        libgen_metadata: &LibgenMetadata,
+        client: Option<&reqwest::Client>,
+        download_mirror: DownloadMirror,
         download_path: &str,
         progress_callback: Option<impl FnOnce(u64) -> () + Copy>,
-    ) -> Result<(), String> {
-        let download_url = &libgen_metadata.downloadable_urls[0];
-
+    ) -> Result<(), LibgenApiError> {
         let downloaded = self
-            .download(client, &download_url.url, host_url)
-            .await
-            .map_err(|e| e.to_string())?;
+            .download(
+                client.unwrap_or(&reqwest::Client::new()),
+                &download_mirror.download_url,
+                &download_mirror.host_url,
+            )
+            .await?;
 
-        let total_size = downloaded
-            .content_length()
-            .ok_or("Couldn't extract the content length from the downloaded book")?;
+        let total_size = downloaded.content_length().ok_or(LibgenApiError::new(
+            "Couldn't extract the content length from the downloaded book",
+        ))?;
         let mut book_download_path = PathBuf::from(download_path);
-        std::fs::create_dir_all(&book_download_path).map_err(|e| e.to_string())?;
+        tracing::debug!("Book download path: {:?}", book_download_path);
+
+        std::fs::create_dir_all(&book_download_path)?;
+        tracing::debug!("Created the directory for the book download path if it didn't exist.");
 
         //  TODO: review the max path/file name length for windows and linux
         let mut book_title = match self.title.len() {
@@ -77,14 +81,12 @@ impl Book {
         book_download_path.set_extension(&self.extension);
 
         let mut stream = downloaded.bytes_stream();
-        let mut file = File::create(book_download_path).map_err(|e| e.to_string())?;
+        let mut file = File::create(book_download_path)?;
 
         let mut amount_downloaded: u64 = 0;
         while let Some(item) = stream.next().await {
-            let chunk = item
-                .or(Err("Error while downloading file"))
-                .map_err(|e| e.to_string())?;
-            file.write_all(&chunk).map_err(|e| e.to_string())?;
+            let chunk = item.or(Err(LibgenApiError::new("Error while downloading file")))?;
+            file.write_all(&chunk)?;
             let new = min(amount_downloaded + (chunk.len() as u64), total_size);
 
             amount_downloaded = new;
@@ -100,18 +102,11 @@ impl Book {
         client: &Client,
         download_url_with_md5: &str,
         host_url: &str,
-    ) -> Result<reqwest::Response, String> {
-        let download_page_url_md5 = download_url_with_md5.replace("{md5}", &self.md5);
-        let download_page_url = Url::parse(&download_page_url_md5).map_err(|e| e.to_string())?;
+    ) -> Result<reqwest::Response, LibgenApiError> {
+        let download_url_with_md5 = download_url_with_md5.replace("{md5}", &self.md5);
+        let download_url = Url::parse(&download_url_with_md5)?;
 
-        let content = client
-            .get(download_page_url)
-            .send()
-            .await
-            .or(Err("Couldn't connect to mirror"))?
-            .bytes()
-            .await
-            .or(Err("Couldn't get mirror page"))?;
+        let content = client.get(download_url).send().await?.bytes().await?;
 
         //  I don't really know why this happens, but the compiler will complain if i send and
         //  await the requests inside the functions below while in a multithreaded environment or in a tokio::spawn
@@ -121,43 +116,41 @@ impl Book {
                 Ok(Self::download_from_ads(&content, client, host_url)
                     .await?
                     .send()
-                    .await
-                    .map_err(|e| e.to_string())?)
+                    .await?)
             }
             "http://libgen.lol/" | "http://libgen.me/" => {
                 Ok(Self::download_from_lol(&content, client, host_url)
                     .await?
                     .send()
-                    .await
-                    .map_err(|e| e.to_string())?)
+                    .await?)
             }
-            _ => Err("Couldn't find download url".to_string()),
+            _ => Err(LibgenApiError::new("Couldn't find download url")),
         };
     }
 
     async fn download_from_ads(
         download_page: &Bytes,
         client: &Client,
-        host_url: &str,
-    ) -> Result<RequestBuilder, String> {
+        url: &str,
+    ) -> Result<RequestBuilder, LibgenApiError> {
         let Some(key) = KEY_REGEX
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
             else {
-                return Err("Couldn't find download key".to_string());
+                return Err(LibgenApiError::new("Couldn't find download key"));
             };
-        let download_url = Url::parse(host_url).map_err(|e| e.to_string())?;
+        let download_url = Url::parse(url)?;
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key).map_err(|e| e.to_string())?;
+        let download_url = base_url.parse(key)?;
         Ok(client.get(download_url))
     }
 
     async fn download_from_lol(
         download_page: &Bytes,
         client: &Client,
-        host_url: &str,
-    ) -> Result<RequestBuilder, String> {
+        url: &str,
+    ) -> Result<RequestBuilder, LibgenApiError> {
         let mut key = KEY_REGEX_LOL
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
@@ -172,19 +165,13 @@ impl Book {
                 .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
         }
         if key.is_none() {
-            return Err("Couldn't find download key".to_string());
+            return Err(LibgenApiError::new("Couldn't find download key"));
         }
 
-        let download_url = Url::parse(host_url).map_err(|e| e.to_string())?;
+        let download_url = Url::parse(url)?;
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap()).map_err(|e| e.to_string())?;
+        let download_url = base_url.parse(key.unwrap())?;
         Ok(client.get(download_url))
-    }
-}
-
-impl fmt::Display for Book {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.title)
     }
 }
