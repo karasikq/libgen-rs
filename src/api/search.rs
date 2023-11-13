@@ -124,9 +124,8 @@ impl Search {
                 .query_pairs_mut()
                 .append_pair("ids", hash)
                 .append_pair("fields", &JSON_QUERY);
-            let content = match get_content(&search_url, client).await {
-                Ok(v) => v,
-                Err(_) => continue,
+            let Ok(content) = get_content(&search_url, client).await else {
+                continue;
             };
             let mut book: Vec<Book> =
                 match serde_json::from_str(std::str::from_utf8(&content).unwrap()) {
