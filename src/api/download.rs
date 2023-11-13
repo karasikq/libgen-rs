@@ -4,8 +4,7 @@ use regex::bytes::Regex;
 use reqwest::Client;
 use url::Url;
 
-use crate::api::book::Book;
-use crate::api::mirrors::Mirror;
+use crate::api::{book::Book, mirrors::Mirror};
 
 lazy_static! {
     static ref KEY_REGEX: Regex = Regex::new(r"get\.php\?md5=\w{32}&key=\w{16}").unwrap();
@@ -64,10 +63,7 @@ impl DownloadRequest {
             _ => return Err("Couldn't find download url"),
         };
 
-        match res {
-            Ok(b) => Ok(b),
-            Err(_e) => Err("Download error"),
-        }
+        res.map_err(|_| "Download error")
     }
 
     async fn download(
