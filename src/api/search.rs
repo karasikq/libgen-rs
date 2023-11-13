@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::api::book::Book;
+use crate::error::LibgenApiError;
 use bytes::Bytes;
 use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
@@ -56,6 +57,26 @@ impl Default for SearchIn {
     }
 }
 
+impl TryFrom<usize> for SearchIn {
+    type Error = LibgenApiError;
+    fn try_from(v: usize) -> Result<SearchIn, LibgenApiError> {
+        match v {
+            x if x == SearchIn::Default as usize => Ok(SearchIn::Default),
+            x if x == SearchIn::Title as usize => Ok(SearchIn::Title),
+            x if x == SearchIn::Author as usize => Ok(SearchIn::Author),
+            x if x == SearchIn::Series as usize => Ok(SearchIn::Series),
+            x if x == SearchIn::Publisher as usize => Ok(SearchIn::Publisher),
+            x if x == SearchIn::Year as usize => Ok(SearchIn::Year),
+            x if x == SearchIn::ISBN as usize => Ok(SearchIn::ISBN),
+            x if x == SearchIn::Language as usize => Ok(SearchIn::Language),
+            x if x == SearchIn::MD5 as usize => Ok(SearchIn::MD5),
+            x if x == SearchIn::Tags as usize => Ok(SearchIn::Tags),
+            x if x == SearchIn::Extension as usize => Ok(SearchIn::Extension),
+            _ => Err(LibgenApiError::Generic(format!("Cannot conver {}(usize) to SearchIn", v))),
+        }
+    }
+}
+
 //  TODO: add offset support
 //  TODO: add sorting support
 pub struct Search {
@@ -93,7 +114,7 @@ impl SearchQuery {
 }
 
 impl Search {
-    pub async fn search(&self) -> Result<Vec<Book>, String> {
+    pub async fn search(&self) -> Result<Vec<Book>, LibgenApiError> {
         let query_string = self.generate_query_string()?;
         let search_url_with_query = format!("{}?{}", self.search_url, query_string);
         tracing::debug!(search_url_with_query);
