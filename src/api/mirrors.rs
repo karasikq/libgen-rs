@@ -1,5 +1,4 @@
-use reqwest::Client;
-use reqwest::StatusCode;
+use reqwest::{Client, StatusCode};
 use serde_json::Value;
 use std::fmt;
 use url::Url;
@@ -22,12 +21,9 @@ pub struct Mirror {
 
 impl Mirror {
     pub async fn check_connection(&self, client: &Client) -> Result<(), StatusCode> {
-        let resp = client.get(self.host_url.as_str()).send();
-        // match resp.await {
-        //     Ok(_) => Ok(()),
-        //     Err(e) => Err(e.status().unwrap()),
-        // }
-        resp.await.map(|_| ()).map_err(|e| e.status().unwrap())
+        let resp = client.get(self.host_url.as_str()).send().await;
+
+        resp.map(|_| ()).map_err(|e| e.status().unwrap())
     }
 }
 
