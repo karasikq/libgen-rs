@@ -142,14 +142,13 @@ impl Mirror {
             let Ok(content) = get_content(&search_url, client).await else {
                 continue;
             };
-            let mut book: Vec<Book> =
-                match serde_json::from_str(std::str::from_utf8(&content).unwrap()) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        println!("Couldn't parse json");
-                        continue;
-                    }
-                };
+
+            let Ok(mut book) =
+                serde_json::from_str::<Vec<Book>>(std::str::from_utf8(&content).unwrap())
+            else {
+                println!("Couldn't parse json");
+                continue;
+            };
             book.iter_mut().for_each(|b| {
                 if self.cover_pattern.is_some() {
                     b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
