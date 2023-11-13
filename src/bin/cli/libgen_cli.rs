@@ -109,7 +109,7 @@ pub fn select_download_mirror(mirrors: &MirrorList) -> Result<Mirror, &'static s
 
 pub async fn init() -> Result<(), &'static str> {
     let client = Client::new();
-    let mirrors = MirrorList::parse_mirrors("libgen-rs/mirrors.json");
+    let mirrors = MirrorList::parse("libgen-rs/mirrors.json");
     let Ok(search_mirror) = select_search_mirror(&mirrors) else {
         return Err("You must select a mirror");
     };
