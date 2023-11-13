@@ -8,7 +8,6 @@ use std::{fs::File, io::Write};
 
 use libgen::api::{
     book::Book,
-    download::DownloadRequest,
     mirrors::{Mirror, MirrorList, MirrorType},
     search::{Search, SearchOption},
 };
@@ -144,9 +143,7 @@ pub async fn init() -> Result<(), &'static str> {
         {
             continue;
         }
-        let download_request = DownloadRequest {
-            mirror: select_download_mirror(&mirrors).unwrap(),
-        };
+        let download_request = select_download_mirror(&mirrors).unwrap();
         let down_req = download_request
             .download_book(&client, &selected_book)
             .await?;
