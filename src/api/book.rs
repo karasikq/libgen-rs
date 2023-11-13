@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, fs::File, io::Write, path::PathBuf, fmt::Display};
+use std::{cmp::min, fmt::Display, fs::File, io::Write, path::PathBuf};
 use url::Url;
 
 use crate::error::LibgenApiError;
@@ -50,7 +50,7 @@ impl Book {
         client: Option<&reqwest::Client>,
         download_mirror: DownloadMirror,
         download_path: &str,
-        progress_callback: Option<impl FnOnce(u64, u64) -> () + Copy>,
+        progress_callback: Option<impl FnOnce(u64, u64) + Copy>,
     ) -> Result<(), LibgenApiError> {
         let downloaded = self
             .download(
@@ -76,7 +76,7 @@ impl Book {
         };
 
         //  Windows doesn't allow colon in file names, thx Bill Gates
-        book_title = book_title.replace(":", "");
+        book_title = book_title.replace(':', "");
         book_download_path.push(book_title);
         book_download_path.set_extension(&self.extension);
 
@@ -136,9 +136,9 @@ impl Book {
         let Some(key) = KEY_REGEX
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
-            else {
-                return Err(LibgenApiError::new("Couldn't find download key"));
-            };
+        else {
+            return Err(LibgenApiError::new("Couldn't find download key"));
+        };
         let download_url = Url::parse(url)?;
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));

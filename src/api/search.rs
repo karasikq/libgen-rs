@@ -14,7 +14,6 @@ use serde::Serialize;
 use strum::{Display, EnumIter, EnumString};
 use url::Url;
 
-use super::mirrors::Mirror;
 use super::mirrors::SearchMirror;
 
 lazy_static! {
@@ -72,7 +71,10 @@ impl TryFrom<usize> for SearchIn {
             x if x == SearchIn::MD5 as usize => Ok(SearchIn::MD5),
             x if x == SearchIn::Tags as usize => Ok(SearchIn::Tags),
             x if x == SearchIn::Extension as usize => Ok(SearchIn::Extension),
-            _ => Err(LibgenApiError::Generic(format!("Cannot conver {}(usize) to SearchIn", v))),
+            _ => Err(LibgenApiError::Generic(format!(
+                "Cannot conver {}(usize) to SearchIn",
+                v
+            ))),
         }
     }
 }
@@ -142,7 +144,7 @@ impl Search {
 
     fn parse_hashes(content: &Bytes) -> Vec<String> {
         let mut hashes: Vec<String> = Vec::new();
-        for caps in HASH_REGEX.captures_iter(&content) {
+        for caps in HASH_REGEX.captures_iter(content) {
             let capture = match caps.get(0) {
                 Some(c) => c,
                 None => continue,
@@ -168,7 +170,7 @@ impl Search {
                     .append_pair("ids", hash)
                     .append_pair("fields", &JSON_QUERY);
                 tracing::debug!("requesting json book data at: {:?}", search_url.as_str());
-                let request_content = Self::request_content_as_bytes(&search_url.as_str(), client)
+                let request_content = Self::request_content_as_bytes(search_url.as_str(), client)
                     .await
                     .map_err(|e| e.to_string())?;
 
@@ -294,7 +296,7 @@ mod test {
         let mirror_list = MirrorList::new();
         let selected_mirror = mirror_list.mirrors[0].clone();
         let search = SearchBuilder::new(
-            "rust zero to production".to_string(),
+            "test search query".to_string(),
             selected_mirror.search_url.unwrap(),
             selected_mirror.cover_url.unwrap(),
             selected_mirror.json_search_url.unwrap(),
