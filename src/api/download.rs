@@ -27,9 +27,8 @@ pub struct DownloadRequest {
 
 fn capture<'a>(regex: &Regex, download_page: &'a Bytes) -> Option<&'a str> {
     regex
-            .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
-        
+        .captures(download_page)
+        .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
 }
 
 impl DownloadRequest {
@@ -95,27 +94,18 @@ impl DownloadRequest {
         download_page: &Bytes,
         client: &Client,
     ) -> Result<reqwest::Response, &'static str> {
-        let mut key = KEY_REGEX_LOL
-            .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        if key.is_none() {
-            key = KEY_REGEX_LOL_CLOUDFLARE
-                .captures(download_page)
-                .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        }
-        if key.is_none() {
-            key = KEY_REGEX_LOL_IPFS
-                .captures(download_page)
-                .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        }
-        if key.is_none() {
+        let Some(key) = capture(&KEY_REGEX_LOL, download_page)
+            .or_else(|| capture(&KEY_REGEX_LOL_CLOUDFLARE, download_page))
+            .or_else(|| capture(&KEY_REGEX_LOL_IPFS, download_page))
+        else {
             return Err("Couldn't find download key");
-        }
+        };
 
         let download_url = Url::parse(self.mirror.host_url.as_ref()).unwrap();
-        let options = Url::options();
-        let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap()).unwrap();
+        let options = Url::options().base_url(
+            Some(&download_url)
+        );
+        let download_url = options.parse(key).unwrap();
         client
             .get(download_url)
             .send()
