@@ -105,7 +105,7 @@ impl Search {
             };
             hashes.push(std::str::from_utf8(capture.as_bytes()).unwrap().to_string());
         }
-        hashes.iter().unique().cloned().collect::<Vec<_>>()
+        hashes.iter().unique().cloned().collect()
     }
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {

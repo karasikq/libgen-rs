@@ -48,24 +48,19 @@ impl DownloadRequest {
             .await
             .or(Err("Couldn't get mirror page"))?;
 
-        match self.mirror.host_url.as_str() {
-            "https://libgen.rocks/" => match self.download_book_from_ads(&content, client).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            "http://libgen.lc/" => match self.download_book_from_ads(&content, client).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            "http://libgen.lol/" => match self.download_book_from_lol(&content, client).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            "http://libgen.me/" => match self.download_book_from_lol(&content, client).await {
-                Ok(b) => Ok(b),
-                Err(_e) => Err("Download error"),
-            },
-            &_ => Err("Couldn't find download url"),
+        let res = match self.mirror.host_url.as_str() {
+            "https://libgen.rocks/" | "http://libgen.lc/" => {
+                self.download_book_from_ads(&content, client).await
+            }
+            "https://libgen.lol/" | "http://libgen.me/" => {
+                self.download_book_from_lol(&content, client).await
+            }
+            _ => return Err("Couldn't find download url"),
+        };
+
+        match res {
+            Ok(b) => Ok(b),
+            Err(_e) => Err("Download error"),
         }
     }
 

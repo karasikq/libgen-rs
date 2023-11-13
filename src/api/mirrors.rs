@@ -47,7 +47,7 @@ impl MirrorList {
         let mut download_mirrors: Vec<Mirror> = vec![];
 
         let map: Value = serde_json::from_str(json).unwrap();
-        map.as_object().unwrap().iter().for_each(|(_k, v)| {
+        map.as_object().unwrap().iter().for_each(|(_, v)| {
             let search_url = v
                 .get("SearchUrl")
                 .map(|v| Url::parse(v.as_str().unwrap()).unwrap());
@@ -102,7 +102,6 @@ impl MirrorList {
         client: &Client,
     ) -> Result<Mirror, &'static str> {
         let mirrors = self.mirrors(mirror_type);
-
         for mirror in mirrors.iter() {
             if mirror.check_connection(client).await.is_ok() {
                 return Ok(mirror.clone());
