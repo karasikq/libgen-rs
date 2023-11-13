@@ -97,14 +97,11 @@ impl Search {
     }
 
     fn parse_hashes(content: Bytes) -> Vec<String> {
-        let mut hashes: Vec<String> = vec![];
-        for caps in HASH_REGEX.captures_iter(&content) {
-            let capture = match caps.get(0) {
-                Some(c) => c,
-                None => continue,
-            };
-            hashes.push(std::str::from_utf8(capture.as_bytes()).unwrap().to_string());
-        }
+        let hashes: Vec<_> = HASH_REGEX.captures_iter(&content).flat_map(|caps| {
+            caps.get(0)
+                .map(|x| std::str::from_utf8(x.as_bytes()).unwrap().to_string())
+        }).collect();
+
         hashes.iter().unique().cloned().collect()
     }
 
