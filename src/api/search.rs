@@ -159,4 +159,22 @@ impl Mirror {
         }
         parsed_books
     }
+
+    pub async fn download(
+        &self,
+        client: &Client,
+        key: &str,
+    ) -> Result<reqwest::Response, &'static str> {
+        let download_url = Url::parse(self.host_url.as_ref()).unwrap();
+        let download_url = Url::options()
+            .base_url(Some(&download_url))
+            .parse(key)
+            .unwrap();
+
+        client
+            .get(download_url)
+            .send()
+            .await
+            .or(Err("Couldn't connect to mirror"))
+    }
 }

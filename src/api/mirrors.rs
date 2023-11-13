@@ -48,6 +48,7 @@ impl MirrorList {
                 .to_owned();
         Self::parse_mirrors(&json)
     }
+
     pub fn parse_mirrors(json: &str) -> Self {
         let mut search_mirrors: Vec<Mirror> = vec![];
         let mut download_mirrors: Vec<Mirror> = vec![];

@@ -65,24 +65,6 @@ impl DownloadRequest {
         .map_err(|_| "Download error")
     }
 
-    async fn download(
-        &self,
-        client: &Client,
-        key: &str,
-    ) -> Result<reqwest::Response, &'static str> {
-        let download_url = Url::parse(self.mirror.host_url.as_ref()).unwrap();
-        let download_url = Url::options()
-            .base_url(Some(&download_url))
-            .parse(key)
-            .unwrap();
-
-        client
-            .get(download_url)
-            .send()
-            .await
-            .or(Err("Couldn't connect to mirror"))
-    }
-
     async fn download_book_from_ads(
         &self,
         download_page: &Bytes,
@@ -91,7 +73,7 @@ impl DownloadRequest {
         let Some(key) = capture(&KEY_REGEX, download_page) else {
             return Err("Couldn't find download key");
         };
-        self.download(client, key).await
+        self.mirror.download(client, key).await
     }
 
     async fn download_book_from_lol(
@@ -106,6 +88,6 @@ impl DownloadRequest {
             return Err("Couldn't find download key");
         };
 
-        self.download(client, key).await
+        self.mirror.download(client, key).await
     }
 }
