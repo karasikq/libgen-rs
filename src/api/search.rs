@@ -97,7 +97,7 @@ impl Search {
     }
 
     fn parse_hashes(content: Bytes) -> Vec<String> {
-        let mut hashes: Vec<String> = Vec::new();
+        let mut hashes: Vec<String> = vec![];
         for caps in HASH_REGEX.captures_iter(&content) {
             let capture = match caps.get(0) {
                 Some(c) => c,
@@ -109,7 +109,7 @@ impl Search {
     }
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
-        let mut parsed_books: Vec<Book> = Vec::new();
+        let mut parsed_books: Vec<Book> = vec![];
         let cover_url = String::from(self.mirror.cover_pattern.as_ref().unwrap());
 
         for hash in hashes.iter() {

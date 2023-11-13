@@ -41,9 +41,9 @@ pub struct MirrorList {
 }
 
 impl MirrorList {
-    pub fn parse_mirrors(json: &str) -> MirrorList {
-        let mut search_mirrors: Vec<Mirror> = Vec::new();
-        let mut download_mirrors: Vec<Mirror> = Vec::new();
+    pub fn parse_mirrors(json: &str) -> Self {
+        let mut search_mirrors: Vec<Mirror> = vec![];
+        let mut download_mirrors: Vec<Mirror> = vec![];
 
         let map: Value = serde_json::from_str(json).unwrap();
         map.as_object().unwrap().iter().for_each(|(_k, v)| {
@@ -87,7 +87,7 @@ impl MirrorList {
                 }
             }
         });
-        MirrorList {
+        Self {
             search_mirrors,
             download_mirrors,
         }
