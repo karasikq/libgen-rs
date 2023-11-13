@@ -61,6 +61,10 @@ fn parse_hashes(content: Bytes) -> Vec<String> {
     hashes.iter().unique().cloned().collect()
 }
 
+async fn get_content(url: &Url, client: &Client) -> Result<Bytes, reqwest::Error> {
+    client.get(url.as_str()).send().await?.bytes().await
+}
+
 pub struct Search {
     pub mirror: Mirror,
     pub request: String,
@@ -95,16 +99,12 @@ impl Search {
             .append_pair("column", self.search_option.as_str())
             .finish();
 
-        let content = match Self::get_content(search_url, client).await {
+        let content = match get_content(search_url, client).await {
             Ok(b) => b,
             Err(_) => return Err("Error getting content from page"),
         };
         let book_hashes = parse_hashes(content);
         Ok(self.get_books(&book_hashes, client).await)
-    }
-
-    async fn get_content(url: &Url, client: &Client) -> Result<Bytes, reqwest::Error> {
-        client.get(url.as_str()).send().await?.bytes().await
     }
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
@@ -124,7 +124,7 @@ impl Search {
                 .query_pairs_mut()
                 .append_pair("ids", hash)
                 .append_pair("fields", &JSON_QUERY);
-            let content = match Self::get_content(&search_url, client).await {
+            let content = match get_content(&search_url, client).await {
                 Ok(v) => v,
                 Err(_) => continue,
             };
