@@ -30,14 +30,13 @@ fn capture<'a>(regex: &Regex, download_page: &'a Bytes) -> Option<&'a str> {
         .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
 }
 
-impl DownloadRequest {
+impl Mirror {
     pub async fn download_book(
         &self,
         client: &Client,
         book: &Book,
     ) -> Result<reqwest::Response, &'static str> {
         let download_page_url_md5 = self
-            .mirror
             .download_pattern
             .as_ref()
             .unwrap()
@@ -53,7 +52,7 @@ impl DownloadRequest {
             .await
             .or(Err("Couldn't get mirror page"))?;
 
-        match self.mirror.host_url.as_str() {
+        match self.host_url.as_str() {
             "https://libgen.rocks/" | "http://libgen.lc/" => {
                 self.download_book_from_ads(&content, client).await
             }
@@ -73,7 +72,7 @@ impl DownloadRequest {
         let Some(key) = capture(&KEY_REGEX, download_page) else {
             return Err("Couldn't find download key");
         };
-        self.mirror.download(client, key).await
+        self.download(client, key).await
     }
 
     async fn download_book_from_lol(
@@ -88,6 +87,6 @@ impl DownloadRequest {
             return Err("Couldn't find download key");
         };
 
-        self.mirror.download(client, key).await
+        self.download(client, key).await
     }
 }
