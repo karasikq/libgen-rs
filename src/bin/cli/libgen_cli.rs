@@ -1,18 +1,17 @@
 use console::Style;
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Confirm, FuzzySelect, Input, Select};
+use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, Select};
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
 use reqwest::Client;
-use std::cmp::min;
-use std::fs::File;
-use std::io::Write;
+use std::{fs::File, io::Write};
 
-use libgen::api::book::Book;
-use libgen::api::download::DownloadRequest;
-use libgen::api::mirrors::{Mirror, MirrorList, MirrorType};
-use libgen::api::search::{Search, SearchOption};
+use libgen::api::{
+    book::Book,
+    download::DownloadRequest,
+    mirrors::{Mirror, MirrorList, MirrorType},
+    search::{Search, SearchOption},
+};
 
 lazy_static! {
     static ref RED_STYLE: Style = Style::new().red();
@@ -182,7 +181,7 @@ pub async fn init() -> Result<(), &'static str> {
         while let Some(item) = stream.next().await {
             let chunk = item.or(Err("Error while downloading file")).unwrap();
             file.write_all(&chunk).unwrap();
-            let new = min(downloaded + (chunk.len() as u64), total_size);
+            let new = (downloaded + (chunk.len() as u64)).min(total_size);
             downloaded = new;
             pb.set_position(new);
         }
