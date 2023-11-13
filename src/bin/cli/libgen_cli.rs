@@ -44,24 +44,24 @@ pub fn input_search_request() -> Result<String, &'static str> {
         .expect("You must specify a request"))
 }
 
+const OPTIONS: &[&str; 11] = &[
+    "Default",
+    "Title",
+    "Author",
+    "Series",
+    "Publisher",
+    "Year",
+    "Identifier",
+    "Language",
+    "MD5",
+    "Tags",
+    "Extension",
+];
 pub fn input_search_option() -> Result<SearchOption, &'static str> {
-    let selections = &[
-        "Default",
-        "Title",
-        "Author",
-        "Series",
-        "Publisher",
-        "Year",
-        "Identifier",
-        "Language",
-        "MD5",
-        "Tags",
-        "Extension",
-    ];
     let selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("Search option")
         .default(0)
-        .items(&selections[..])
+        .items(&OPTIONS[..])
         .interact()
         .unwrap();
     Ok(match selection {
@@ -141,7 +141,7 @@ pub async fn init() -> Result<(), &'static str> {
         let request = input_search_request().expect("Empty request");
         let search_option = input_search_option().unwrap();
         let results = input_results_count().unwrap();
-        let search_options: Search = Search {
+        let search_options = Search {
             mirror: search_mirror.clone(),
             request,
             results,
@@ -185,11 +185,11 @@ pub async fn init() -> Result<(), &'static str> {
         let mut book_download_path = dirs::download_dir().unwrap();
         book_download_path.push("libgen-rs");
         std::fs::create_dir_all(&book_download_path).unwrap();
-        if selected_book.title.len() >= 249 {
-            book_download_path.push(&selected_book.title[0..249]);
+        book_download_path.push(if selected_book.title.len() >= 249 {
+            &selected_book.title[0..249]
         } else {
-            book_download_path.push(&selected_book.title);
-        }
+            &selected_book.title
+        });
         book_download_path.set_extension(&selected_book.extension);
         let mut stream = down_req.bytes_stream();
         let mut file = File::create(book_download_path).unwrap();
