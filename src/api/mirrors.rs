@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::fmt;
 use url::Url;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum MirrorType {
     Search,
     Download,
@@ -66,24 +67,18 @@ impl MirrorList {
                 .get("NonFictionCoverUrl")
                 .map(|v| String::from(v.as_str().unwrap()));
             if let Some(..) = host_url {
-                if search_url.is_some() {
-                    search_mirrors.push(Mirror {
-                        host_url: host_url.unwrap(),
-                        search_url,
-                        download_url,
-                        download_pattern,
-                        sync_url,
-                        cover_pattern,
-                    })
-                } else if download_url.is_some() {
-                    download_mirrors.push(Mirror {
-                        host_url: host_url.unwrap(),
-                        search_url,
-                        download_url,
-                        download_pattern,
-                        sync_url,
-                        cover_pattern,
-                    })
+                let mirror = Mirror {
+                    host_url: host_url.unwrap(),
+                    search_url,
+                    download_url,
+                    download_pattern,
+                    sync_url,
+                    cover_pattern,
+                };
+                if mirror.search_url.is_some() {
+                    search_mirrors.push(mirror);
+                } else if mirror.download_url.is_some() {
+                    download_mirrors.push(mirror);
                 }
             }
         });
@@ -93,25 +88,26 @@ impl MirrorList {
         }
     }
 
+    pub fn mirrors(&self, mirror_type: MirrorType) -> &[Mirror] {
+        if MirrorType::Search == mirror_type {
+            &self.search_mirrors
+        } else {
+            &self.download_mirrors
+        }
+    }
+
     pub async fn get_working_mirror(
         &self,
         mirror_type: MirrorType,
         client: &Client,
     ) -> Result<Mirror, &'static str> {
-        if let MirrorType::Search = mirror_type {
-            for mirror in self.search_mirrors.iter() {
-                match mirror.check_connection(client).await {
-                    Ok(_) => return Ok(mirror.clone()),
-                    Err(_e) => continue,
-                };
-            }
-        } else {
-            for mirror in self.download_mirrors.iter() {
-                match mirror.check_connection(client).await {
-                    Ok(_) => return Ok(mirror.clone()),
-                    Err(_e) => continue,
-                };
-            }
+        let mirrors = self.mirrors(mirror_type);
+
+        for mirror in mirrors.iter() {
+            match mirror.check_connection(client).await {
+                Ok(_) => return Ok(mirror.clone()),
+                Err(_) => continue,
+            };
         }
         Err("Couldn't reach mirrors")
     }
