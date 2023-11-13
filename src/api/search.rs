@@ -72,18 +72,17 @@ impl Search {
                 .as_str(),
         )
         .unwrap();
-        let mut search_query = search_url.query_pairs_mut();
-        search_query
+        let search_url = search_url
+            .query_pairs_mut()
             .append_pair("req", &self.request)
             .append_pair("lg_topic", "libgen")
             .append_pair("res", &results.to_string())
             .append_pair("open", "0")
             .append_pair("view", "simple")
-            .append_pair("phrase", "1");
+            .append_pair("phrase", "1")
+            .append_pair("column", self.search_option.as_str())
+            .finish();
 
-        search_query.append_pair("column", self.search_option.as_str());
-
-        let search_url = search_query.finish();
         let content = match Self::get_content(search_url, client).await {
             Ok(b) => b,
             Err(_) => return Err("Error getting content from page"),
@@ -97,10 +96,13 @@ impl Search {
     }
 
     fn parse_hashes(content: Bytes) -> Vec<String> {
-        let hashes: Vec<_> = HASH_REGEX.captures_iter(&content).flat_map(|caps| {
-            caps.get(0)
-                .map(|x| std::str::from_utf8(x.as_bytes()).unwrap().to_string())
-        }).collect();
+        let hashes: Vec<_> = HASH_REGEX
+            .captures_iter(&content)
+            .flat_map(|caps| {
+                caps.get(0)
+                    .map(|x| std::str::from_utf8(x.as_bytes()).unwrap().to_string())
+            })
+            .collect();
 
         hashes.iter().unique().cloned().collect()
     }
