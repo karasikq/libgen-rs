@@ -17,15 +17,6 @@ lazy_static! {
     static ref RED_STYLE: Style = Style::new().red();
 }
 
-pub fn parse_mirrors() -> MirrorList {
-    let mut config_path = dirs::config_dir().unwrap();
-    config_path.push("libgen-rs/mirrors.json");
-    let json = std::str::from_utf8(&std::fs::read(config_path).expect("Couldn't read config file"))
-        .unwrap()
-        .to_owned();
-    MirrorList::parse_mirrors(&json)
-}
-
 pub fn select_search_mirror(mirrors: &MirrorList) -> Result<Mirror, &'static str> {
     let mirror_selection = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Search mirror")
@@ -119,7 +110,7 @@ pub fn select_download_mirror(mirrors: &MirrorList) -> Result<Mirror, &'static s
 
 pub async fn init() -> Result<(), &'static str> {
     let client = Client::new();
-    let mirrors = parse_mirrors();
+    let mirrors = MirrorList::parse_mirrors("libgen-rs/mirrors.json");
     let search_mirror = match select_search_mirror(&mirrors) {
         Ok(mirror) => mirror,
         Err(_) => return Err("You must select a mirror"),
