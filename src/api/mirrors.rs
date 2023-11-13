@@ -1,4 +1,7 @@
+use std::fmt::Display;
+
 use crate::consts;
+use crate::error::LibgenApiError;
 use reqwest::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -107,6 +110,8 @@ impl MirrorList {
                     download_url: download_url.to_owned(),
                 });
             }
+
+            // Refactor this
             match (
                 mirror.search_url.as_ref(),
                 mirror.json_search_url.as_ref(),
@@ -131,10 +136,49 @@ impl MirrorList {
         }
         Ok((search_mirrors, download_mirrors))
     }
+
+    pub fn get_search_mirror(&self, index: usize) -> Result<SearchMirror, LibgenApiError> {
+        match self.search_mirrors.get(index) {
+            Some(mirror) => Ok(mirror.clone()),
+            None => Err(LibgenApiError::Generic(format!(
+                "Cannot get mirror with index {}",
+                index
+            ))),
+        }
+    }
+
+    pub fn get_download_mirror(&self, index: usize) -> Result<DownloadMirror, LibgenApiError> {
+        match self.download_mirrors.get(index) {
+            Some(mirror) => Ok(mirror.clone()),
+            None => Err(LibgenApiError::Generic(format!(
+                "Cannot get mirror with index {}",
+                index
+            ))),
+        }
+    }
+}
+
+impl Default for MirrorList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Display for SearchMirror {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
+
+impl Display for DownloadMirror {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
 }
 
 mod test {
     use super::MirrorList;
+
     #[tokio::test]
     async fn create_list_if_everything_ok() {
         let json_str = "[{\"label\":\"libgen.is\",\"url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\",\"download_url\":\"http://libgen.is/get.php\",\"json_search_url\":\"http://libgen.is/json.php\",\"cover_url\":\"http://libgen.is/covers/{cover-url}\"}]";
