@@ -16,7 +16,7 @@ lazy_static! {
             .to_string();
 }
 
-#[repr(u32)]
+#[repr(usize)]
 pub enum SearchOption {
     Default,
     Title,
@@ -29,6 +29,26 @@ pub enum SearchOption {
     MD5,
     Tags,
     Extension,
+}
+
+impl TryFrom<usize> for SearchOption {
+    type Error = &'static str;
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::Default,
+            1 => Self::Title,
+            2 => Self::Author,
+            3 => Self::Series,
+            4 => Self::Publisher,
+            5 => Self::Year,
+            6 => Self::ISBN,
+            7 => Self::Language,
+            8 => Self::MD5,
+            9 => Self::Tags,
+            10 => Self::Extension,
+            _ => return Err("Unknown option"),
+        })
+    }
 }
 
 impl SearchOption {
