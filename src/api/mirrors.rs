@@ -39,6 +39,15 @@ pub struct MirrorList {
 }
 
 impl MirrorList {
+    pub fn parse(path: &str) -> Self {
+        let mut config_path = dirs::config_dir().unwrap();
+        config_path.push(path);
+        let json =
+            std::str::from_utf8(&std::fs::read(config_path).expect("Couldn't read config file"))
+                .unwrap()
+                .to_owned();
+        Self::parse_mirrors(&json)
+    }
     pub fn parse_mirrors(json: &str) -> Self {
         let mut search_mirrors: Vec<Mirror> = vec![];
         let mut download_mirrors: Vec<Mirror> = vec![];
