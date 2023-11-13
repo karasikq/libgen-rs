@@ -53,7 +53,7 @@ impl DownloadRequest {
             .await
             .or(Err("Couldn't get mirror page"))?;
 
-        let res = match self.mirror.host_url.as_str() {
+        match self.mirror.host_url.as_str() {
             "https://libgen.rocks/" | "http://libgen.lc/" => {
                 self.download_book_from_ads(&content, client).await
             }
@@ -61,9 +61,8 @@ impl DownloadRequest {
                 self.download_book_from_lol(&content, client).await
             }
             _ => return Err("Couldn't find download url"),
-        };
-
-        res.map_err(|_| "Download error")
+        }
+        .map_err(|_| "Download error")
     }
 
     async fn download(
@@ -72,9 +71,11 @@ impl DownloadRequest {
         key: &str,
     ) -> Result<reqwest::Response, &'static str> {
         let download_url = Url::parse(self.mirror.host_url.as_ref()).unwrap();
-        let options = Url::options().base_url(Some(&download_url));
+        let download_url = Url::options()
+            .base_url(Some(&download_url))
+            .parse(key)
+            .unwrap();
 
-        let download_url = options.parse(key).unwrap();
         client
             .get(download_url)
             .send()
