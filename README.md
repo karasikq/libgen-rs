@@ -6,4 +6,4 @@ A rust CLI tool for searching and downloading books from Library Genesis.
 ![fuzzy](resources/git/book_fuzzy.png)
 
 # Requirements 
-mirrors.json from resources/ folder should be in $XDG_CONFIG_HOME/libgen-rs 
+If you want to use your custom mirrors copy mirrors.json from resources/ directory.
