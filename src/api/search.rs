@@ -16,6 +16,7 @@ lazy_static! {
             .to_string();
 }
 
+#[repr(u32)]
 pub enum SearchOption {
     Default,
     Title,
@@ -28,6 +29,24 @@ pub enum SearchOption {
     MD5,
     Tags,
     Extension,
+}
+
+impl SearchOption {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Default => "def",
+            Self::Title => "title",
+            Self::Author => "author",
+            Self::Series => "series",
+            Self::Publisher => "publisher",
+            Self::Year => "year",
+            Self::ISBN => "identifier",
+            Self::Language => "language",
+            Self::MD5 => "md5",
+            Self::Tags => "tags",
+            Self::Extension => "extension",
+        }
+    }
 }
 
 pub struct Search {
@@ -61,19 +80,9 @@ impl Search {
             .append_pair("open", "0")
             .append_pair("view", "simple")
             .append_pair("phrase", "1");
-        match self.search_option {
-            SearchOption::Default => search_query.append_pair("column", "def"),
-            SearchOption::Title => search_query.append_pair("column", "title"),
-            SearchOption::Author => search_query.append_pair("column", "author"),
-            SearchOption::Series => search_query.append_pair("column", "series"),
-            SearchOption::Publisher => search_query.append_pair("column", "publisher"),
-            SearchOption::Year => search_query.append_pair("column", "year"),
-            SearchOption::ISBN => search_query.append_pair("column", "identifier"),
-            SearchOption::Language => search_query.append_pair("column", "language"),
-            SearchOption::MD5 => search_query.append_pair("column", "md5"),
-            SearchOption::Tags => search_query.append_pair("column", "tags"),
-            SearchOption::Extension => search_query.append_pair("column", "extension"),
-        };
+
+        search_query.append_pair("column", self.search_option.as_str());
+
         let search_url = search_query.finish();
         let content = match Self::get_content(search_url, client).await {
             Ok(b) => b,

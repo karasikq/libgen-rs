@@ -1,8 +1,8 @@
 use reqwest::Client;
 use reqwest::StatusCode;
 use serde_json::Value;
-use url::Url;
 use std::fmt;
+use url::Url;
 
 pub enum MirrorType {
     Search,
@@ -27,7 +27,6 @@ impl Mirror {
             Err(e) => Err(e.status().unwrap()),
         }
     }
-
 }
 
 impl fmt::Display for Mirror {
@@ -83,7 +82,7 @@ impl MirrorList {
                         download_url,
                         download_pattern,
                         sync_url,
-                        cover_pattern
+                        cover_pattern,
                     })
                 }
             }

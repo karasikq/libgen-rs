@@ -1,4 +1,4 @@
-pub mod search;
 pub mod book;
-pub mod mirrors;
 pub mod download;
+pub mod mirrors;
+pub mod search;

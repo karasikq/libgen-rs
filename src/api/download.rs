@@ -26,7 +26,11 @@ pub struct DownloadRequest {
 }
 
 impl DownloadRequest {
-    pub async fn download_book(&self, client: &Client, book: &Book) -> Result<reqwest::Response, &'static str> {
+    pub async fn download_book(
+        &self,
+        client: &Client,
+        book: &Book,
+    ) -> Result<reqwest::Response, &'static str> {
         let download_page_url_md5 = self
             .mirror
             .download_pattern
@@ -69,7 +73,7 @@ impl DownloadRequest {
         &self,
         download_page: &Bytes,
         client: &Client,
-    ) -> Result<reqwest::Response, &'static str>  {
+    ) -> Result<reqwest::Response, &'static str> {
         let key = KEY_REGEX
             .captures(download_page)
             .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());

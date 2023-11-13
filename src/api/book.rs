@@ -22,4 +22,3 @@ impl fmt::Display for Book {
         write!(f, "{}", self.title)
     }
 }
-

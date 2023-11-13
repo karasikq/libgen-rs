@@ -64,20 +64,20 @@ pub fn input_search_option() -> Result<SearchOption, &'static str> {
         .items(&selections[..])
         .interact()
         .unwrap();
-    match selection {
-        0 => Ok(SearchOption::Default),
-        1 => Ok(SearchOption::Title),
-        2 => Ok(SearchOption::Author),
-        3 => Ok(SearchOption::Series),
-        4 => Ok(SearchOption::Publisher),
-        5 => Ok(SearchOption::Year),
-        6 => Ok(SearchOption::ISBN),
-        7 => Ok(SearchOption::Language),
-        8 => Ok(SearchOption::MD5),
-        9 => Ok(SearchOption::Tags),
-        10 => Ok(SearchOption::Extension),
-        _ => Err("Unknown option"),
-    }
+    Ok(match selection {
+        0 => SearchOption::Default,
+        1 => SearchOption::Title,
+        2 => SearchOption::Author,
+        3 => SearchOption::Series,
+        4 => SearchOption::Publisher,
+        5 => SearchOption::Year,
+        6 => SearchOption::ISBN,
+        7 => SearchOption::Language,
+        8 => SearchOption::MD5,
+        9 => SearchOption::Tags,
+        10 => SearchOption::Extension,
+        _ => return Err("Unknown option"),
+    })
 }
 
 pub fn input_results_count() -> Result<u32, &'static str> {
