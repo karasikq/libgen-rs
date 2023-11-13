@@ -25,6 +25,13 @@ pub struct DownloadRequest {
     pub mirror: Mirror,
 }
 
+fn capture<'a>(regex: &Regex, download_page: &'a Bytes) -> Option<&'a str> {
+    regex
+            .captures(download_page)
+            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
+        
+}
+
 impl DownloadRequest {
     pub async fn download_book(
         &self,
@@ -69,17 +76,13 @@ impl DownloadRequest {
         download_page: &Bytes,
         client: &Client,
     ) -> Result<reqwest::Response, &'static str> {
-        let key = KEY_REGEX
-            .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        if key.is_none() {
+        let Some(key) = capture(&KEY_REGEX, download_page) else {
             return Err("Couldn't find download key");
-        }
-
+        };
         let download_url = Url::parse(self.mirror.host_url.as_ref()).unwrap();
         let options = Url::options();
         let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap()).unwrap();
+        let download_url = base_url.parse(key).unwrap();
         client
             .get(download_url)
             .send()
