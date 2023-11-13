@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
-use std::{cmp::min, fs::File, io::Write, path::PathBuf};
+use std::{cmp::min, fs::File, io::Write, path::PathBuf, fmt::Display};
 use url::Url;
 
 use crate::error::LibgenApiError;
@@ -50,7 +50,7 @@ impl Book {
         client: Option<&reqwest::Client>,
         download_mirror: DownloadMirror,
         download_path: &str,
-        progress_callback: Option<impl FnOnce(u64) -> () + Copy>,
+        progress_callback: Option<impl FnOnce(u64, u64) -> () + Copy>,
     ) -> Result<(), LibgenApiError> {
         let downloaded = self
             .download(
@@ -91,7 +91,7 @@ impl Book {
 
             amount_downloaded = new;
             if let Some(callback) = progress_callback {
-                callback(amount_downloaded);
+                callback(amount_downloaded, total_size);
             }
         }
         Ok(())
@@ -173,5 +173,11 @@ impl Book {
         let base_url = options.base_url(Some(&download_url));
         let download_url = base_url.parse(key.unwrap())?;
         Ok(client.get(download_url))
+    }
+}
+
+impl Display for Book {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.title)
     }
 }
