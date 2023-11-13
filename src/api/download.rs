@@ -1,10 +1,11 @@
-use bytes::Bytes;
-use lazy_static::lazy_static;
-use regex::bytes::Regex;
-use reqwest::Client;
-use url::Url;
-
-use crate::api::{book::Book, mirrors::Mirror};
+use {
+    crate::api::{book::Book, mirrors::Mirror},
+    bytes::Bytes,
+    lazy_static::lazy_static,
+    regex::bytes::Regex,
+    reqwest::Client,
+    url::Url,
+};
 
 lazy_static! {
     static ref KEY_REGEX: Regex = Regex::new(r"get\.php\?md5=\w{32}&key=\w{16}").unwrap();
@@ -18,10 +19,6 @@ lazy_static! {
     static ref KEY_REGEX_LOL_IPFS: Regex =
         Regex::new(r"https://ipfs\.io/ipfs/\w{62}\?filename=.+?(gz|pdf|rar|djvu|epub|chm)")
             .unwrap();
-}
-
-pub struct DownloadRequest {
-    pub mirror: Mirror,
 }
 
 fn capture<'a>(regex: &Regex, download_page: &'a Bytes) -> Option<&'a str> {

@@ -1,7 +1,9 @@
-use reqwest::{Client, StatusCode};
-use serde_json::Value;
-use std::fmt;
-use url::Url;
+use {
+    reqwest::{Client, StatusCode},
+    serde_json::Value,
+    std::fmt,
+    url::Url,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum MirrorType {

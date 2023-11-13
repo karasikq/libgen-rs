@@ -1,13 +1,13 @@
-use bytes::Bytes;
-use itertools::Itertools;
-use lazy_static::lazy_static;
-use regex::bytes::Regex;
-use reqwest::Client;
-use std::cmp::Ordering;
-use url::Url;
-
-use crate::api::book::Book;
-use crate::api::mirrors::Mirror;
+use {
+    crate::api::{book::Book, mirrors::Mirror},
+    bytes::Bytes,
+    itertools::Itertools,
+    lazy_static::lazy_static,
+    regex::bytes::Regex,
+    reqwest::Client,
+    std::cmp::Ordering,
+    url::Url,
+};
 
 lazy_static! {
     static ref HASH_REGEX: Regex = Regex::new(r"[A-Z0-9]{32}").unwrap();

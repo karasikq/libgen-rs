@@ -1,5 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::fmt;
+use {
+    serde::{Deserialize, Serialize},
+    std::fmt,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Book {
