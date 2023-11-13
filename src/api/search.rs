@@ -119,16 +119,11 @@ impl Search {
             .append_pair("column", self.search_option.as_str())
             .finish();
 
-        let content = match get_content(search_url, client).await {
-            Ok(b) => b,
-            Err(_) => return Err("Error getting content from page"),
+        let Ok(content) = get_content(search_url, client).await else {
+            return Err("Error getting content from page");
         };
         let book_hashes = parse_hashes(content);
-        Ok(self.get_books(&book_hashes, client).await)
-    }
-
-    async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
-        self.mirror.get_books(hashes, client).await
+        Ok(self.mirror.get_books(&book_hashes, client).await)
     }
 }
 
