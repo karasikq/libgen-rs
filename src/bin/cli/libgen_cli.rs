@@ -166,9 +166,8 @@ pub async fn init() -> Result<(), &'static str> {
         {
             continue;
         }
-        let download_mirror = select_download_mirror(&mirrors).unwrap();
         let download_request = DownloadRequest {
-            mirror: download_mirror,
+            mirror: select_download_mirror(&mirrors).unwrap(),
         };
         let down_req = download_request
             .download_book(&client, &selected_book)
@@ -185,11 +184,9 @@ pub async fn init() -> Result<(), &'static str> {
         let mut book_download_path = dirs::download_dir().unwrap();
         book_download_path.push("libgen-rs");
         std::fs::create_dir_all(&book_download_path).unwrap();
-        book_download_path.push(if selected_book.title.len() >= 249 {
-            &selected_book.title[0..249]
-        } else {
-            &selected_book.title
-        });
+
+        let len = selected_book.title.len().min(249);
+        book_download_path.push(&selected_book.title[0..len]);
         book_download_path.set_extension(&selected_book.extension);
         let mut stream = down_req.bytes_stream();
         let mut file = File::create(book_download_path).unwrap();
