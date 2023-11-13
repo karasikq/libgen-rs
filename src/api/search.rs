@@ -49,6 +49,18 @@ impl SearchOption {
     }
 }
 
+fn parse_hashes(content: Bytes) -> Vec<String> {
+    let hashes: Vec<_> = HASH_REGEX
+        .captures_iter(&content)
+        .flat_map(|caps| {
+            caps.get(0)
+                .map(|x| std::str::from_utf8(x.as_bytes()).unwrap().to_string())
+        })
+        .collect();
+
+    hashes.iter().unique().cloned().collect()
+}
+
 pub struct Search {
     pub mirror: Mirror,
     pub request: String,
@@ -87,24 +99,12 @@ impl Search {
             Ok(b) => b,
             Err(_) => return Err("Error getting content from page"),
         };
-        let book_hashes = Self::parse_hashes(content);
-        Ok(Self::get_books(self, &book_hashes, client).await)
+        let book_hashes = parse_hashes(content);
+        Ok(self.get_books(&book_hashes, client).await)
     }
 
     async fn get_content(url: &Url, client: &Client) -> Result<Bytes, reqwest::Error> {
         client.get(url.as_str()).send().await?.bytes().await
-    }
-
-    fn parse_hashes(content: Bytes) -> Vec<String> {
-        let hashes: Vec<_> = HASH_REGEX
-            .captures_iter(&content)
-            .flat_map(|caps| {
-                caps.get(0)
-                    .map(|x| std::str::from_utf8(x.as_bytes()).unwrap().to_string())
-            })
-            .collect();
-
-        hashes.iter().unique().cloned().collect()
     }
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
