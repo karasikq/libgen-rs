@@ -128,18 +128,18 @@ impl Search {
     }
 
     async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
+        self.mirror.get_books(hashes, client).await
+    }
+}
+
+impl Mirror {
+    async fn get_books(&self, hashes: &[String], client: &Client) -> Vec<Book> {
         let mut parsed_books: Vec<Book> = vec![];
-        let cover_url = String::from(self.mirror.cover_pattern.as_ref().unwrap());
+        let cover_url = String::from(self.cover_pattern.as_ref().unwrap());
 
         for hash in hashes.iter() {
-            let mut search_url = Url::parse(
-                self.mirror
-                    .sync_url
-                    .as_ref()
-                    .expect("Expected an Url")
-                    .as_str(),
-            )
-            .unwrap();
+            let mut search_url =
+                Url::parse(self.sync_url.as_ref().expect("Expected an Url").as_str()).unwrap();
             search_url
                 .query_pairs_mut()
                 .append_pair("ids", hash)
@@ -156,7 +156,7 @@ impl Search {
                     }
                 };
             book.iter_mut().for_each(|b| {
-                if self.mirror.cover_pattern.is_some() {
+                if self.cover_pattern.is_some() {
                     b.coverurl = cover_url.replace("{cover-url}", &b.coverurl);
                 }
             });
