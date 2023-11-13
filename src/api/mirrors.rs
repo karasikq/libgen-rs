@@ -104,18 +104,14 @@ impl MirrorList {
         let mirrors = self.mirrors(mirror_type);
 
         for mirror in mirrors.iter() {
-            match mirror.check_connection(client).await {
-                Ok(_) => return Ok(mirror.clone()),
-                Err(_) => continue,
+            if mirror.check_connection(client).await.is_ok() {
+                return Ok(mirror.clone());
             };
         }
         Err("Couldn't reach mirrors")
     }
 
     pub fn get(&self, mirror_type: MirrorType, index: usize) -> Result<Mirror, &'static str> {
-        match mirror_type {
-            MirrorType::Search => Ok(self.search_mirrors.get(index).unwrap().clone()),
-            MirrorType::Download => Ok(self.download_mirrors.get(index).unwrap().clone()),
-        }
+        Ok(self.mirrors(mirror_type).get(index).unwrap().clone())
     }
 }
