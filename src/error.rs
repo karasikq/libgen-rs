@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum LibgenApiError {
     ReqwestError(reqwest::Error),
     UrlParseError(url::ParseError),
@@ -35,5 +36,17 @@ impl From<url::ParseError> for LibgenApiError {
 impl From<std::io::Error> for LibgenApiError {
     fn from(err: std::io::Error) -> Self {
         Self::Generic(err.to_string())
+    }
+}
+
+impl From<&'static str> for LibgenApiError {
+    fn from(err: &'static str) -> Self {
+        Self::Generic(err.to_string())
+    }
+}
+
+impl From<String> for LibgenApiError {
+    fn from(err: String) -> Self {
+        Self::Generic(err)
     }
 }
