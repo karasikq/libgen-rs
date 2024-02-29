@@ -1,39 +1,8 @@
-[package]
-name = "libgen-rs"
-version = "0.1.0"
-edition = "2021"
-license-file = "LICENSE"
-description = "Package that provide API for search and download book from Library Genesis"
-readme = "README.md"
-repository = "https://github.com/karasikq/libgen-rs"
-categories = ["api-bindings", "command-line-utilities"]
+[workspace]
+resolver = "2"
+members  = [ "libgen-*" ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-reqwest = { version = "0.11", features = ["json", "stream"] }
-regex = "1.6.0"
-url = "2.2.2"
-lazy_static = "1.4.0"
-bytes = "1.1.0"
-itertools = "0.7.6"
-serde_json = "1.0.83"
-serde = { version = "1.0.143", features = ["derive"] }
-dirs = "4.0.0"
-futures-util = "0.3.23"
-tokio = { version = "1.20.1", features = ["full"] }
-indicatif = "0.17.0"
-dialoguer = { version = "0.10.2", features = ["fuzzy-select"] }
-console = "0.15.1"
-serde_qs = "0.10.1"
-strum = { version = "0.24.1", features = ["derive"] }
-strum_macros = "0.24.3"
-tracing = "0.1.37"
-
-[lib]
-name = "libgen"
-path = "src/lib.rs"
-
-[[bin]]
-name = "libgen-cli"
-path = "src/bin/cli/main.rs"
+[profile.release]
+lto   = true
+strip = true
+panic = "abort"

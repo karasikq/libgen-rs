@@ -442,7 +442,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db6d7e329c562c5dfab7a46a2afabc8b987ab9a4834c9d1ca04dc54c1546cef8"
 
 [[package]]
-name = "libgen-rs"
+name = "libgen-api"
 version = "0.1.0"
 dependencies = [
  "bytes",
@@ -453,6 +453,31 @@ dependencies = [
  "indicatif",
  "itertools",
  "lazy_static",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "strum",
+ "strum_macros",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "libgen-bin"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "console",
+ "dialoguer",
+ "dirs",
+ "futures-util",
+ "indicatif",
+ "itertools",
+ "lazy_static",
+ "libgen-api",
  "regex",
  "reqwest",
  "serde",

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::book::Book;
-use crate::error::LibgenApiError;
+use crate::book::Book;
+use crate::error::Error;
 use bytes::Bytes;
-use futures_util::stream::FuturesUnordered;
 use futures_util::StreamExt;
+use futures_util::stream::FuturesUnordered;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
@@ -57,8 +57,8 @@ impl Default for SearchIn {
 }
 
 impl TryFrom<usize> for SearchIn {
-    type Error = LibgenApiError;
-    fn try_from(v: usize) -> Result<SearchIn, LibgenApiError> {
+    type Error = Error;
+    fn try_from(v: usize) -> Result<SearchIn, Error> {
         match v {
             x if x == SearchIn::Default as usize => Ok(SearchIn::Default),
             x if x == SearchIn::Title as usize => Ok(SearchIn::Title),
@@ -71,7 +71,7 @@ impl TryFrom<usize> for SearchIn {
             x if x == SearchIn::MD5 as usize => Ok(SearchIn::MD5),
             x if x == SearchIn::Tags as usize => Ok(SearchIn::Tags),
             x if x == SearchIn::Extension as usize => Ok(SearchIn::Extension),
-            _ => Err(LibgenApiError::Generic(format!(
+            _ => Err(Error::Generic(format!(
                 "Cannot conver {}(usize) to SearchIn",
                 v
             ))),
@@ -116,7 +116,7 @@ impl SearchQuery {
 }
 
 impl Search {
-    pub async fn search(&self) -> Result<Vec<Book>, LibgenApiError> {
+    pub async fn search(&self) -> Result<Vec<Book>, Error> {
         let query_string = self.generate_query_string()?;
         let search_url_with_query = format!("{}?{}", self.search_url, query_string);
         tracing::debug!(search_url_with_query);
@@ -269,12 +269,12 @@ impl SearchBuilder {
 }
 
 #[cfg(test)]
-mod test {
-    use crate::api::{mirrors::MirrorList, search::SearchBuilder};
+mod tests {
+    use crate::{mirrors::MirrorList, search::SearchBuilder};
 
     #[test]
     fn it_builds_correctly() {
-        let mirror_list = MirrorList::new();
+        let mirror_list = MirrorList::default();
         let selected_mirror = mirror_list.mirrors[0].clone();
         let search = SearchBuilder::new(
             "test".to_string(),
@@ -293,7 +293,7 @@ mod test {
 
     #[tokio::test]
     async fn it_searches() {
-        let mirror_list = MirrorList::new();
+        let mirror_list = MirrorList::default();
         let selected_mirror = mirror_list.mirrors[0].clone();
         let search = SearchBuilder::new(
             "test search query".to_string(),

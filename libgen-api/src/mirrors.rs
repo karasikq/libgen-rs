@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use crate::consts;
-use crate::error::LibgenApiError;
+use crate::error::Error;
+use regex::Regex;
 use reqwest::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -15,6 +15,7 @@ pub struct Mirror {
     pub json_search_url: Option<String>,
     pub download_url: Option<String>,
     pub cover_url: Option<String>,
+    pub download_regexes: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -30,6 +31,13 @@ pub struct DownloadMirror {
     pub label: String,
     pub host_url: String,
     pub download_url: String,
+    pub donwload_regexes: Vec<Regex>,
+}
+
+pub struct MirrorList {
+    pub mirrors: Vec<Mirror>,
+    pub download_mirrors: Vec<DownloadMirror>,
+    pub search_mirrors: Vec<SearchMirror>,
 }
 
 impl Mirror {
@@ -43,31 +51,9 @@ impl Mirror {
     }
 }
 
-pub struct MirrorList {
-    pub mirrors: Vec<Mirror>,
-    pub download_mirrors: Vec<DownloadMirror>,
-    pub search_mirrors: Vec<SearchMirror>,
-}
-
 impl MirrorList {
-    /// From the default static mirrors
-    pub fn new() -> Self {
-        Self::from_static_mirrors()
-    }
-
-    pub fn from_static_mirrors() -> Self {
-        let mirrors = consts::MIRRORS.to_vec();
-        let (search_mirrors, download_mirrors) =
-            Self::get_search_and_download_mirrors(&mirrors).unwrap();
-        Self {
-            mirrors,
-            download_mirrors,
-            search_mirrors,
-        }
-    }
-
     /// From a valid json file containing an array of mirrors (check mirrors.json)
-    pub fn from_json_file(file: &str) -> Result<Self, String> {
+    pub fn from_json_file(file: &str) -> Result<Self, Error> {
         let file_content = std::fs::read(file).map_err(|e| {
             format!(
                 "Couldn't read the provided json file: {}",
@@ -86,8 +72,19 @@ impl MirrorList {
     }
 
     /// From a valid json string containing an array of mirrors
-    pub fn from_json_str(json: &str) -> Result<Self, String> {
+    pub fn from_json_str(json: &str) -> Result<Self, Error> {
         let mirrors: Vec<Mirror> = serde_json::from_str(json).map_err(|e| e.to_string())?;
+        let (search_mirrors, download_mirrors) = Self::get_search_and_download_mirrors(&mirrors)?;
+        let list = Self {
+            mirrors,
+            search_mirrors,
+            download_mirrors,
+        };
+        Ok(list)
+    }
+
+    pub fn from_json_slice(json: &[u8]) -> Result<Self, Error> {
+        let mirrors: Vec<Mirror> = serde_json::from_slice(json).map_err(|e| e.to_string())?;
         let (search_mirrors, download_mirrors) = Self::get_search_and_download_mirrors(&mirrors)?;
         let list = Self {
             mirrors,
@@ -99,7 +96,7 @@ impl MirrorList {
 
     fn get_search_and_download_mirrors(
         mirrors: &Vec<Mirror>,
-    ) -> Result<(Vec<SearchMirror>, Vec<DownloadMirror>), String> {
+    ) -> Result<(Vec<SearchMirror>, Vec<DownloadMirror>), Error> {
         let mut search_mirrors = vec![];
         let mut download_mirrors = vec![];
         for mirror in mirrors {
@@ -108,49 +105,54 @@ impl MirrorList {
                     label: mirror.label.clone(),
                     host_url: mirror.url.clone(),
                     download_url: download_url.to_owned(),
+                    donwload_regexes: mirror
+                        .download_regexes
+                        .iter()
+                        .map(|r| -> Result<Regex, Error> {
+                            Regex::new(&r).map_err(|e| {
+                                Error::Mirror(format!("Cannot parse download regex. Reason: {}", e))
+                            })
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?,
                 });
             }
 
-            // Refactor this
-            match (
+            if let (Some(search_url), Some(json_search_url), Some(cover_url)) = (
                 mirror.search_url.as_ref(),
                 mirror.json_search_url.as_ref(),
                 mirror.cover_url.as_ref(),
             ) {
-                (Some(search_url), Some(json_search_url), Some(cover_url)) => {
-                    search_mirrors.push(SearchMirror {
-                        label: mirror.label.clone(),
-                        search_url: search_url.clone(),
-                        json_search_url: json_search_url.clone(),
-                        cover_url: cover_url.clone(),
-                    });
-                }
-                _ => (),
+                search_mirrors.push(SearchMirror {
+                    label: mirror.label.clone(),
+                    search_url: search_url.clone(),
+                    json_search_url: json_search_url.clone(),
+                    cover_url: cover_url.clone(),
+                });
             }
         }
-        if search_mirrors.is_empty() {
-            return Err("No search mirror was found in the provided list".to_string());
+        if search_mirrors.is_empty() && download_mirrors.is_empty() {
+            Err(Error::mirror(
+                "No search and download mirrors was found in the provided list",
+            ))
+        } else {
+            Ok((search_mirrors, download_mirrors))
         }
-        if download_mirrors.is_empty() {
-            return Err("No downloaded mirror was found in the provided list".to_string());
-        }
-        Ok((search_mirrors, download_mirrors))
     }
 
-    pub fn get_search_mirror(&self, index: usize) -> Result<SearchMirror, LibgenApiError> {
+    pub fn get_search_mirror(&self, index: usize) -> Result<SearchMirror, Error> {
         match self.search_mirrors.get(index) {
             Some(mirror) => Ok(mirror.clone()),
-            None => Err(LibgenApiError::Generic(format!(
+            None => Err(Error::Generic(format!(
                 "Cannot get mirror with index {}",
                 index
             ))),
         }
     }
 
-    pub fn get_download_mirror(&self, index: usize) -> Result<DownloadMirror, LibgenApiError> {
+    pub fn get_download_mirror(&self, index: usize) -> Result<DownloadMirror, Error> {
         match self.download_mirrors.get(index) {
             Some(mirror) => Ok(mirror.clone()),
-            None => Err(LibgenApiError::Generic(format!(
+            None => Err(Error::Generic(format!(
                 "Cannot get mirror with index {}",
                 index
             ))),
@@ -160,7 +162,7 @@ impl MirrorList {
 
 impl Default for MirrorList {
     fn default() -> Self {
-        Self::new()
+        Self::from_json_slice(include_bytes!("../../resources/mirrors.json")).unwrap()
     }
 }
 
@@ -176,8 +178,9 @@ impl Display for DownloadMirror {
     }
 }
 
-mod test {
-    use super::MirrorList;
+#[cfg(test)]
+mod tests {
+    use crate::mirrors::MirrorList;
 
     #[tokio::test]
     async fn create_list_if_everything_ok() {

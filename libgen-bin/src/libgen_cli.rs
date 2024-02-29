@@ -2,22 +2,14 @@ use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
+use libgen_api::{mirrors::{MirrorList, SearchMirror, DownloadMirror}, error::Error, search::{SearchIn, SearchBuilder}, book::Book};
 use reqwest::Client;
-
-use libgen::{
-    api::{
-        book::Book,
-        mirrors::{DownloadMirror, MirrorList, SearchMirror},
-        search::{SearchBuilder, SearchIn},
-    },
-    error::LibgenApiError,
-};
 
 lazy_static! {
     static ref RED_STYLE: Style = Style::new().red();
 }
 
-pub fn select_search_mirror(mirrors: &MirrorList) -> Result<SearchMirror, LibgenApiError> {
+pub fn select_search_mirror(mirrors: &MirrorList) -> Result<SearchMirror, Error> {
     let mirror_selection = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Search mirror")
         .default(0)
@@ -47,7 +39,7 @@ const OPTIONS: &[&str; 11] = &[
     "Tags",
     "Extension",
 ];
-pub fn input_search_option() -> Result<SearchIn, LibgenApiError> {
+pub fn input_search_option() -> Result<SearchIn, Error> {
     let selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt("Search option")
         .default(0)
@@ -98,7 +90,7 @@ pub fn print_book_info(book: &Book) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub fn select_download_mirror(mirrors: &MirrorList) -> Result<DownloadMirror, LibgenApiError> {
+pub fn select_download_mirror(mirrors: &MirrorList) -> Result<DownloadMirror, Error> {
     let mirror_selection = FuzzySelect::with_theme(&ColorfulTheme::default())
         .with_prompt("Download mirror")
         .default(0)
@@ -108,7 +100,7 @@ pub fn select_download_mirror(mirrors: &MirrorList) -> Result<DownloadMirror, Li
     mirrors.get_download_mirror(mirror_selection.unwrap())
 }
 
-pub async fn init() -> Result<(), LibgenApiError> {
+pub async fn init() -> Result<(), Error> {
     let client = Client::new();
     let mirrors = MirrorList::new();
     let Ok(search_mirror) = select_search_mirror(&mirrors) else {

@@ -4,21 +4,24 @@
 		"url": "http://libgen.is/",
 		"search_url": "https://libgen.is/search.php",
 		"cover_url": "http://libgen.is/covers/{cover-url}",
-		"json_search_url": "http://libgen.is/json.php"
+		"json_search_url": "http://libgen.is/json.php",
+    "download_regexes": ["get\.php\?md5=\w{32}&key=\w{16}"]
 	},
 	{
 		"label": "libgen.rs",
 		"url": "http://libgen.rs/",
 		"search_url": "https://libgen.rs/search.php",
 		"cover_url": "http://libgen.rs/covers/{cover-url}",
-		"json_search_url": "http://libgen.rs/json.php"
+		"json_search_url": "http://libgen.rs/json.php",
+    "download_regexes": ["get\.php\?md5=\w{32}&key=\w{16}"]
 	},
 	{
 		"label": "libgen.st",
 		"url": "http://libgen.st/",
 		"search_url": "https://libgen.st/search.php",
 		"cover_url": "http://libgen.st/covers/{cover-url}",
-		"json_search_url": "http://libgen.st/json.php"
+		"json_search_url": "http://libgen.st/json.php",
+    "download_regexes": ["get\.php\?md5=\w{32}&key=\w{16}"]
 	},
 	{
 		"label": "library.lol",
@@ -26,22 +29,32 @@
 		"download_url": "http://library.lol/main/{md5}",
 		"cover_url": "http://libgen.rs/covers/{cover-url}",
 		"json_search_url": "http://libgen.rs/json.php"
+    "download_regexes": ["http://62\.182\.86\.140/main/\d{7}/\w{32}/.+?(gz|pdf|rar|djvu|epub|chm)",
+      "https://cloudflare-ipfs\.com/ipfs/\w{62}\?filename=.+?(gz|pdf|rar|djvu|epub|chm)",
+      "https://ipfs\.io/ipfs/\w{62}\?filename=.+?(gz|pdf|rar|djvu|epub|chm)" 
+    ]
 	},
 	{
 		"label": "libgen.lc",
 		"url": "http://libgen.lc/",
 		"download_url": "http://libgen.lc/get.php?md5={md5}",
 		"cover_url": "http://libgen.lc/covers/{cover-url}",
-		"json_search_url": "http://libgen.ls/json.php"
+		"json_search_url": "http://libgen.ls/json.php",
+    "download_regexes": ["get\.php\?md5=\w{32}&key=\w{16}"]
 	},
 	{
 		"label": "libgen.rocks",
 		"url": "https://libgen.rocks/",
-		"download_url": "https://libgen.rocks/ads.php?md5={md5}"
+		"download_url": "https://libgen.rocks/ads.php?md5={md5}",
+    "download_regexes": ["get\.php\?md5=\w{32}&key=\w{16}"]
 	},
 	{
 		"label": "libgen.me",
 		"url": "https://libgen.me/",
-		"download_url": "https://libgen.me/book/{md5}"
+		"download_url": "https://libgen.me/book/{md5}",
+    "download_regexes": ["http://62\.182\.86\.140/main/\d{7}/\w{32}/.+?(gz|pdf|rar|djvu|epub|chm)",
+      "https://cloudflare-ipfs\.com/ipfs/\w{62}\?filename=.+?(gz|pdf|rar|djvu|epub|chm)",
+      "https://ipfs\.io/ipfs/\w{62}\?filename=.+?(gz|pdf|rar|djvu|epub|chm)" 
+    ]
 	}
 ]
