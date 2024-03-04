@@ -1,13 +1,13 @@
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input, Select};
 use indicatif::{ProgressBar, ProgressStyle};
-use lazy_static::lazy_static;
-use libgen_api::{mirrors::{MirrorList, SearchMirror, DownloadMirror}, error::Error, search::{SearchIn, SearchBuilder}, book::Book};
+use libgen_api::{
+    book::Book,
+    error::Error,
+    mirrors::{DownloadMirror, MirrorList, SearchMirror},
+    search::{SearchBuilder, SearchIn},
+};
 use reqwest::Client;
-
-lazy_static! {
-    static ref RED_STYLE: Style = Style::new().red();
-}
 
 pub fn select_search_mirror(mirrors: &MirrorList) -> Result<SearchMirror, Error> {
     let mirror_selection = FuzzySelect::with_theme(&ColorfulTheme::default())
@@ -72,21 +72,22 @@ pub fn fuzzyselect_book(books: &[Book]) -> Result<Book, &'static str> {
 }
 
 pub fn print_book_info(book: &Book) -> Result<(), &'static str> {
-    println!("{}: {}", RED_STYLE.apply_to("ID"), book.id);
-    println!("{}: {}", RED_STYLE.apply_to("Title"), book.title);
-    println!("{}: {}", RED_STYLE.apply_to("Author"), book.author);
+    let red = Style::new().red();
+    println!("{}: {}", red.apply_to("ID"), book.id);
+    println!("{}: {}", red.apply_to("Title"), book.title);
+    println!("{}: {}", red.apply_to("Author"), book.author);
     println!(
         "{}: {:.2} Mb",
-        RED_STYLE.apply_to("Filesize"),
+        red.apply_to("Filesize"),
         book.filesize.parse::<u32>().unwrap() as f32 / 1048576.0
     );
-    println!("{}: {}", RED_STYLE.apply_to("Year"), book.year);
-    println!("{}: {}", RED_STYLE.apply_to("Language"), book.language);
-    println!("{}: {}", RED_STYLE.apply_to("Pages"), book.pages);
-    println!("{}: {}", RED_STYLE.apply_to("Publisher"), book.publisher);
-    println!("{}: {}", RED_STYLE.apply_to("Edition"), book.edition);
-    println!("{}: {}", RED_STYLE.apply_to("MD5"), book.md5);
-    println!("{}: {}", RED_STYLE.apply_to("Cover"), book.coverurl);
+    println!("{}: {}", red.apply_to("Year"), book.year);
+    println!("{}: {}", red.apply_to("Language"), book.language);
+    println!("{}: {}", red.apply_to("Pages"), book.pages);
+    println!("{}: {}", red.apply_to("Publisher"), book.publisher);
+    println!("{}: {}", red.apply_to("Edition"), book.edition);
+    println!("{}: {}", red.apply_to("MD5"), book.md5);
+    println!("{}: {}", red.apply_to("Cover"), book.coverurl);
     Ok(())
 }
 
@@ -102,7 +103,7 @@ pub fn select_download_mirror(mirrors: &MirrorList) -> Result<DownloadMirror, Er
 
 pub async fn init() -> Result<(), Error> {
     let client = Client::new();
-    let mirrors = MirrorList::new();
+    let mirrors = MirrorList::default();
     let Ok(search_mirror) = select_search_mirror(&mirrors) else {
         return Err("You must select a mirror")?;
     };
