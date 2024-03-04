@@ -1,5 +1,6 @@
+use bytes::Bytes;
 use futures_util::StreamExt;
-use reqwest::{Client, RequestBuilder};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{cmp::min, fmt::Display, fs::File, io::Write, path::PathBuf};
 use url::Url;
@@ -37,11 +38,7 @@ impl Book {
         P: Into<PathBuf>,
     {
         let downloaded = self
-            .download(
-                client.unwrap_or(&reqwest::Client::new()),
-                &download_mirror.download_url,
-                &download_mirror.host_url,
-            )
+            .download(client.unwrap_or(&reqwest::Client::new()), &download_mirror)
             .await?;
 
         let total_size = downloaded
@@ -89,93 +86,30 @@ impl Book {
         &self,
         client: &Client,
         mirror: &DownloadMirror,
-        download_url_with_md5: &str,
-        host_url: &str,
     ) -> Result<reqwest::Response, Error> {
-        let download_url_with_md5 = mirror.replace("{md5}", &self.md5);
+        let download_url_with_md5 = mirror.download_url.replace("{md5}", &self.md5);
         let download_url = Url::parse(&download_url_with_md5)?;
 
         let content = client.get(download_url).send().await?.bytes().await?;
+        let url = Self::parse_page(&content, mirror)?;
 
-        match host_url {
-            "https://libgen.rocks/" | "http://libgen.lc/" => {
-                Ok(Self::download_from_ads(&content, client, host_url)
-                    .await?
-                    .send()
-                    .await?)
-            }
-            "http://libgen.lol/" | "http://libgen.me/" => {
-                Ok(Self::download_from_lol(&content, client, host_url)
-                    .await?
-                    .send()
-                    .await?)
-            }
-            _ => Err(Error::new("Couldn't find download url")),
-        }
+        client.get(url).send().await.map_err(Error::ReqwestError)
     }
 
-    async fn parse_page(
-        page: &Bytes,
-        mirror: &DownloadMirror,
-    ) -> Result<Url, Error> {
-        for regex in mirror.donwload_regexes {
+    fn parse_page(page: &Bytes, mirror: &DownloadMirror) -> Result<Url, Error> {
+        for regex in mirror.donwload_regexes.iter() {
             if let Some(key) = regex
-                .captures(page.into())
+                .captures(page)
                 .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
             {
+                let download_url = Url::parse(&mirror.download_url)?;
                 let options = Url::options();
-                let base_url = options.base_url(Some(&Url::parse(&mirror.download_url)?));
+                let base_url = options.base_url(Some(&download_url));
                 let download_url = base_url.parse(key)?;
+                return Ok(download_url);
             }
         }
         Err(Error::new("Couldn't find download key"))
-    }
-
-    async fn download_from_ads(
-        download_page: &Bytes,
-        client: &Client,
-        url: &str,
-    ) -> Result<RequestBuilder, Error> {
-        let Some(key) = KEY_REGEX
-            .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap())
-        else {
-            return Err(Error::new("Couldn't find download key"));
-        };
-        let download_url = Url::parse(url)?;
-        let options = Url::options();
-        let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key)?;
-        Ok(client.get(download_url))
-    }
-
-    async fn download_from_lol(
-        download_page: &Bytes,
-        client: &Client,
-        url: &str,
-    ) -> Result<RequestBuilder, Error> {
-        let mut key = KEY_REGEX_LOL
-            .captures(download_page)
-            .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        if key.is_none() {
-            key = KEY_REGEX_LOL_CLOUDFLARE
-                .captures(download_page)
-                .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        }
-        if key.is_none() {
-            key = KEY_REGEX_LOL_IPFS
-                .captures(download_page)
-                .map(|c| std::str::from_utf8(c.get(0).unwrap().as_bytes()).unwrap());
-        }
-        if key.is_none() {
-            return Err(Error::new("Couldn't find download key"));
-        }
-
-        let download_url = Url::parse(url)?;
-        let options = Url::options();
-        let base_url = options.base_url(Some(&download_url));
-        let download_url = base_url.parse(key.unwrap())?;
-        Ok(client.get(download_url))
     }
 }
 
