@@ -3,10 +3,9 @@ use std::sync::Arc;
 use crate::book::Book;
 use crate::error::Error;
 use bytes::Bytes;
-use futures_util::StreamExt;
 use futures_util::stream::FuturesUnordered;
+use futures_util::StreamExt;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use reqwest::Client;
 use serde::Deserialize;
@@ -16,12 +15,7 @@ use url::Url;
 
 use super::mirrors::SearchMirror;
 
-lazy_static! {
-    static ref HASH_REGEX: Regex = Regex::new(r"[A-Z0-9]{32}").unwrap();
-    static ref JSON_QUERY: String =
-        "id,title,author,filesize,extension,md5,year,language,pages,publisher,edition,coverurl,descr,timeadded,timelastmodified"
-            .to_string();
-}
+static JSON_QUERY: &str = "id,title,author,filesize,extension,md5,year,language,pages,publisher,edition,coverurl,descr,timeadded,timelastmodified";
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, EnumIter, EnumString, Display)]
 pub enum SearchIn {
@@ -144,7 +138,8 @@ impl Search {
 
     fn parse_hashes(content: &Bytes) -> Vec<String> {
         let mut hashes: Vec<String> = Vec::new();
-        for caps in HASH_REGEX.captures_iter(content) {
+        let hash_regex = Regex::new(r"[A-Z0-9]{32}").unwrap();
+        for caps in hash_regex.captures_iter(content) {
             let capture = match caps.get(0) {
                 Some(c) => c,
                 None => continue,
@@ -168,7 +163,7 @@ impl Search {
                 search_url
                     .query_pairs_mut()
                     .append_pair("ids", hash)
-                    .append_pair("fields", &JSON_QUERY);
+                    .append_pair("fields", JSON_QUERY);
                 tracing::debug!("requesting json book data at: {:?}", search_url.as_str());
                 let request_content = Self::request_content_as_bytes(search_url.as_str(), client)
                     .await
