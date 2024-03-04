@@ -1,9 +1,10 @@
 # libgen-rs
 
-A rust CLI tool for searching and downloading books from Library Genesis.
+A rust API & CLI tool for searching and downloading books from Library Genesis.
 
 ![search](resources/git/search_option.png)
-![fuzzy](resources/git/book_fuzzy.png)
 
-# Requirements 
-If you want to use your custom mirrors copy mirrors.json from resources/ directory.
+# Mirrors
+If you want to use your custom mirrors there are 2 options:
+- change resources/mirrors.json and rebuild libgen-api
+- load from json at runtime
