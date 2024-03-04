@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::error::Error;
-use regex::Regex;
+use regex::bytes::Regex;
 use reqwest::Client;
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -109,7 +109,7 @@ impl MirrorList {
                         .download_regexes
                         .iter()
                         .map(|r| -> Result<Regex, Error> {
-                            Regex::new(&r).map_err(|e| {
+                            Regex::new(r).map_err(|e| {
                                 Error::Mirror(format!("Cannot parse download regex. Reason: {}", e))
                             })
                         })
@@ -162,7 +162,7 @@ impl MirrorList {
 
 impl Default for MirrorList {
     fn default() -> Self {
-        Self::from_json_slice(include_bytes!("../../resources/mirrors.json")).unwrap()
+        Self::from_json_str(include_str!("../../resources/mirrors.json")).unwrap()
     }
 }
 
@@ -182,10 +182,9 @@ impl Display for DownloadMirror {
 mod tests {
     use crate::mirrors::MirrorList;
 
-    #[tokio::test]
-    async fn create_list_if_everything_ok() {
-        let json_str = "[{\"label\":\"libgen.is\",\"url\":\"http://libgen.is/\",\"search_url\":\"https://libgen.is/search.php\",\"download_url\":\"http://libgen.is/get.php\",\"json_search_url\":\"http://libgen.is/json.php\",\"cover_url\":\"http://libgen.is/covers/{cover-url}\"}]";
-        assert!(MirrorList::from_json_str(json_str).is_ok())
+    #[test]
+    fn default_json() {
+        let _ = MirrorList::default();
     }
 
     #[test]
